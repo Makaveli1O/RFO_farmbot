@@ -20,7 +20,7 @@ class Detector:
     def find(   self,
                 heystack_img,
                 threshold = 0.5,
-                debugMode = None):
+                maxResults = 10):
         """Finds sub image within image given heystack image. Uses TM_COEFF_NORMED
         algorithm to recieve number btwn 0 and 1. 1 indicading closest matched pixels.
         min, max values from minMaxLoc is ALWAYS returned. This is why there is a 
@@ -41,8 +41,10 @@ class Detector:
         # merge indeces on to tuples (0,0), (1,1)
         locations = list(zip(*locations[::-1]))
         
-        boundingBoxes = self.__buildBoundingBoxes(  
-                                                    locations,
+        if not locations:
+            return np.array([], dtype=np.int32).reshape(0, 4)
+        
+        boundingBoxes = self.__buildBoundingBoxes(  locations,
                                                     self.needle_w,
                                                     self.needle_h)
         
@@ -51,26 +53,22 @@ class Detector:
         # group overlapping rectangles
         boundingBoxes, weights = cv.groupRectangles(boundingBoxes, groupThreshold, eps)
         
+        # performance -> return limited number of results
+        if len(rectangles) > maxResults:
+            print('Warning: too many results, raise the threshold.')
+            rectangles = rectangles[:maxResults]
+
+        return rectangles
+    
+    def __getPoints(self, boundingBoxes):
         # modpoints of boundingBoxes of found objects
-        midPoints = []
-        if len(boundingBoxes):
-            line_color = (0, 255, 0)
-            line_type = cv.LINE_4
-            
-            # loop over unpacked bounding box rectangles
-            for (x, y, w, h) in boundingBoxes:
-                # determine box around obj and draw box
-                top_left = (x, y)
-                bottom_right = (x + w, y + h)
-                
-                if debugMode is not None:
-                    cv.rectangle(heystack_img, top_left, bottom_right, line_color,1, line_type)
-                    cv.drawMarker(heystack_img, self.__getMidPoint(x, y, w ,h), (0, 0, 255),cv.MARKER_CROSS)
-                    
-                midPoints.append(self.__getMidPoint(x, y, w ,h))
-        if debugMode == DebugModes.FULL_DEBUG:
-            cv.imshow("Result", heystack_img)
-        
+        midPoints = []    
+        # loop over unpacked bounding box rectangles
+        for (x, y, w, h) in boundingBoxes:
+            # determine box around obj and draw box
+            top_left = (x, y)
+            bottom_right = (x + w, y + h)
+            midPoints.append(self.__getMidPoint(x, y, w ,h))
         return midPoints
         
     def __buildBoundingBoxes(self, locations, needle_w, needle_h) -> int | None:
@@ -94,3 +92,26 @@ class Detector:
 
     def __getMidPoint(self, x, y, w, h) -> int :
         return (x + int(w / 2), y + int(h / 2))
+    
+    def drawBoundingBoxes(self, heystack_img, boundingBoxes):
+        line_color = (0, 255, 0)
+        line_type = cv.LINE_4
+
+        for (x, y, w, h) in boundingBoxes:
+            # determine the box positions
+            top_left = (x, y) 
+            bottom_right = (x + w, y + h)
+            # draw the box
+            cv.rectangle(heystack_img, top_left, bottom_right, line_color, lineType=line_type)
+            
+        return heystack_img
+
+    def drawMidPoints(self, heystack_img, points):
+        marker_color = (255, 0, 255)
+        marker_type = cv.MARKER_CROSS
+
+        for (center_x, center_y) in points:
+            # draw the center point
+            cv.drawMarker(heystack_img, (center_x, center_y), marker_color, marker_type)
+
+        return heystack_img

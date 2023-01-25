@@ -17,8 +17,14 @@ while(True):
     # get image from the window
     screenshot = wincap.get_screenshot()
 
-    # display the images
-    mid_points = mob_detector.find(screenshot, 0.8, DebugModes.FULL_DEBUG)
+    # object detection
+    boundingBoxes = mob_detector.find(screenshot, 0.8)
+    
+    # draw bounding boxes
+    output_image = mob_detector.drawBoundingBoxes(screenshot, boundingBoxes)
+    
+    # display processed image
+    cv2.imshow("Matches", output_image)
 
     # debug loop rate
     print('FPS {}'.format(1 / (time() - loop_time)))
@@ -35,5 +41,3 @@ while(True):
     # save negative image 
     elif key == ord("g"):
         cv2.imwrite('negative/{}.jpg'.format(loop_time), screenshot)
-
-print("Done")
