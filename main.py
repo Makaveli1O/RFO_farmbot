@@ -4,10 +4,12 @@ from time import time
 from io import StringIO
 
 # from windowcapture import WindowCapture
-import WinCapture
+from windowCapture import WindowCapture
+from vision import findClickPositions
 
 # initialize window capture class
-wincap = WinCapture('Window Name')
+wincap = WindowCapture('RF Online')
+WindowCapture.list_window_names()
 
 loop_time = time()
 
