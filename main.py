@@ -1,22 +1,24 @@
 import cv2 
 import numpy as np
 from time import time
-from io import StringIO
-
-# from windowcapture import WindowCapture
-import WinCapture
+from windowCapture import WindowCapture
+from Detector import Detector, DebugModes
 
 # initialize window capture class
-wincap = WinCapture('Window Name')
+wincap = WindowCapture('RF Online')
+WindowCapture.list_window_names()
 
 loop_time = time()
+threshold = 0.5
+
+mob_detector = Detector("needle.jpg")
 
 while(True):
     # get image from the window
     screenshot = wincap.get_screenshot()
 
     # display the images
-    cv2.imshow('Unprocessed', screenshot)
+    mid_points = mob_detector.find(screenshot, 0.8, DebugModes.FULL_DEBUG)
 
     # debug loop rate
     print('FPS {}'.format(1 / (time() - loop_time)))

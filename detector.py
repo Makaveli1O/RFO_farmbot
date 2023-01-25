@@ -1,42 +1,96 @@
-import cv2
+import cv2 as cv
+import numpy as np
+from enum import Enum
 
-cap = cv2.VideoCapture("video.mp4")
+class DebugModes(Enum):
+    CONSOLE_ONLY = "console"
+    FULL_DEBUG = "full"
+    
+class Detector:
+    
+    def __init__(self, needle_img_path, algorithm = cv.TM_CCOEFF_NORMED):
+        # load image to find
+        self.needle_img = cv.imread(needle_img_path, cv.IMREAD_UNCHANGED)  
+        # images dimensions
+        self.needle_w = self.needle_img.shape[1]
+        self.needle_h = self.needle_img.shape[0]
+        # select comparison algorithm
+        self.algorithm = algorithm
+    
+    def find(   self,
+                heystack_img,
+                threshold = 0.5,
+                debugMode = None):
+        """Finds sub image within image given heystack image. Uses TM_COEFF_NORMED
+        algorithm to recieve number btwn 0 and 1. 1 indicading closest matched pixels.
+        min, max values from minMaxLoc is ALWAYS returned. This is why there is a 
+        threshold to detect real matches from the fake ones.
 
-if cap.isOpened() == False:
-    raise Exception("Video capture is not opened.")
+        Args:
+            needle_img_path (_type_): _description_
+            heystack_img (_type_): _description_
+            threshold (float, optional): _description_. Defaults to 0.5.
+            debug_mode (_type_, optional): _description_. Defaults to None.
+        """
+        # returns coefficients for every row/cols on every position even hanging over
+        result = cv.matchTemplate(heystack_img, self.needle_img, self.algorithm)
+        
+        min_val, max_val, min_loc, max_loc = cv.minMaxLoc(result)
+        # get all locations over the threshold and store it into np array
+        locations = np.where(result >= threshold)
+        # merge indeces on to tuples (0,0), (1,1)
+        locations = list(zip(*locations[::-1]))
+        
+        boundingBoxes = self.__buildBoundingBoxes(  
+                                                    locations,
+                                                    self.needle_w,
+                                                    self.needle_h)
+        
+        eps = 0.5 # how close the rectangles should be to group them
+        groupThreshold = 1
+        # group overlapping rectangles
+        boundingBoxes, weights = cv.groupRectangles(boundingBoxes, groupThreshold, eps)
+        
+        # modpoints of boundingBoxes of found objects
+        midPoints = []
+        if len(boundingBoxes):
+            line_color = (0, 255, 0)
+            line_type = cv.LINE_4
+            
+            # loop over unpacked bounding box rectangles
+            for (x, y, w, h) in boundingBoxes:
+                # determine box around obj and draw box
+                top_left = (x, y)
+                bottom_right = (x + w, y + h)
+                
+                if debugMode is not None:
+                    cv.rectangle(heystack_img, top_left, bottom_right, line_color,1, line_type)
+                    cv.drawMarker(heystack_img, self.__getMidPoint(x, y, w ,h), (0, 0, 255),cv.MARKER_CROSS)
+                    
+                midPoints.append(self.__getMidPoint(x, y, w ,h))
+        if debugMode == DebugModes.FULL_DEBUG:
+            cv.imshow("Result", heystack_img)
+        
+        return midPoints
+        
+    def __buildBoundingBoxes(self, locations, needle_w, needle_h) -> int | None:
+        """Returns a list of rectangles {x,y,w,h}
+        x,y -> coordinates of upper left corner
+        w,h -> width and height 
 
-while cap.isOpened():
-    #read frames
-    ret, frame = cap.read()
-    # lead pre-trained model
-    detector = cv2.CascadeClassifier("path_to_model")
-    #use pre-trained model to detect obj in current frame
-    objects = detector.detectMultiScale(frame,
-                                        scaleFactor = 1.1,
-                                        minNeighbors = 5,
-                                        minSize = (30, 30)
-                                        )
+        Args:
+            locations (_type_): _description_
+        """
+        rectangles = []
+        # append list of rectangles twice, since groupRectangles function
+        # requires overlapping of at least 2 rectangles meaning single would not
+        # be accounted in result
+        for location in locations:
+            rect = [int(location[0]), int(location[1]), needle_w, needle_h]
+            rectangles.append(rect)
+            rectangles.append(rect)
+            
+        return rectangles
 
-#Import only if not previously imported
-#import cv2
-# Create a Video Reader Object.
-#cap = cv2.VideoCapture(VideoToRead)
-#if cap.isOpened() == False:
-#    print("Error in opening video stream or file")
-#Define the codec for the Video
-#fourcc = cv2.VideoWriter_fourcc("Fourcc Codec Eg-XVID")
-#Create Video Writer Object
-#writer = cv2.VideoWriter('Video Writing Address',fourcc, fps value, (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
-#while cap.isOpened():
-#    ret, frame = cap.read()
-#    if ret:
-#        writer.write(frame)
-#        cv2.imshow("Frame",frame)
-#        # Exit on pressing esc
-#        if cv2.waitKey(20) & 0xFF == 27:
-#            break
-#    else:
-#        break
-#cap.release()
-#writer.release()
-#cv2.destroyAllWindows()
+    def __getMidPoint(self, x, y, w, h) -> int :
+        return (x + int(w / 2), y + int(h / 2))
