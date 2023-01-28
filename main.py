@@ -1,22 +1,30 @@
 import cv2 
 import numpy as np
 from time import time
-from io import StringIO
-
-# from windowcapture import WindowCapture
-import WinCapture
+from windowCapture import WindowCapture
+from detector import Detector, DebugModes
 
 # initialize window capture class
-wincap = WinCapture('Window Name')
+wincap = WindowCapture('RF Online')
+WindowCapture.list_window_names()
 
 loop_time = time()
+threshold = 0.5
+
+mob_detector = Detector("needle.jpg")
 
 while(True):
     # get image from the window
     screenshot = wincap.get_screenshot()
 
-    # display the images
-    cv2.imshow('Unprocessed', screenshot)
+    # object detection
+    boundingBoxes = mob_detector.find(screenshot, 0.8)
+    
+    # draw bounding boxes
+    output_image = mob_detector.drawBoundingBoxes(screenshot, boundingBoxes)
+    
+    # display processed image
+    cv2.imshow("Matches", output_image)
 
     # debug loop rate
     print('FPS {}'.format(1 / (time() - loop_time)))
@@ -33,5 +41,3 @@ while(True):
     # save negative image 
     elif key == ord("g"):
         cv2.imwrite('negative/{}.jpg'.format(loop_time), screenshot)
-
-print("Done")
