@@ -11,20 +11,22 @@ WindowCapture.list_window_names()
 loop_time = time()
 threshold = 0.5
 
-mob_detector = Detector("needle.jpg")
+#mob_detector = Detector(None)
 
 while(True):
     # get image from the window
     screenshot = wincap.get_screenshot()
+    
+    cv2.imshow("unprocessed", screenshot)
 
     # object detection
-    boundingBoxes = mob_detector.find(screenshot, 0.8)
+    #boundingBoxes = mob_detector.find(screenshot, 0.8)
     
     # draw bounding boxes
-    output_image = mob_detector.drawBoundingBoxes(screenshot, boundingBoxes)
+    #output_image = mob_detector.drawBoundingBoxes(screenshot, boundingBoxes)
     
     # display processed image
-    cv2.imshow("Matches", output_image)
+    #cv2.imshow("Matches", output_image)
 
     # debug loop rate
     print('FPS {}'.format(1 / (time() - loop_time)))
