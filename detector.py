@@ -9,11 +9,12 @@ class DebugModes(Enum):
 class Detector:
     
     def __init__(self, needle_img_path, algorithm = cv.TM_CCOEFF_NORMED):
-        # load image to find
-        self.needle_img = cv.imread(needle_img_path, cv.IMREAD_UNCHANGED)  
-        # images dimensions
-        self.needle_w = self.needle_img.shape[1]
-        self.needle_h = self.needle_img.shape[0]
+        if needle_img_path:
+            # load image to find
+            self.needle_img = cv.imread(needle_img_path, cv.IMREAD_UNCHANGED)  
+            # images dimensions
+            self.needle_w = self.needle_img.shape[1]
+            self.needle_h = self.needle_img.shape[0]
         # select comparison algorithm
         self.algorithm = algorithm
     

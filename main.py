@@ -11,22 +11,26 @@ WindowCapture.list_window_names()
 loop_time = time()
 threshold = 0.5
 
-#mob_detector = Detector(None)
+# load trained model
+cascade_model = cv2.CascadeClassifier("cascadeModel_v1/cascade.xml")
+# load an empty detector class
+detector = Detector(None)
 
 while(True):
     # get image from the window
     screenshot = wincap.get_screenshot()
     
-    cv2.imshow("unprocessed", screenshot)
+    # unprocessed image from the game
+    #cv2.imshow("unprocessed", screenshot)
 
     # object detection
-    #boundingBoxes = mob_detector.find(screenshot, 0.8)
+    boundingBoxes = cascade_model.detectMultiScale(screenshot)
     
     # draw bounding boxes
-    #output_image = mob_detector.drawBoundingBoxes(screenshot, boundingBoxes)
+    output_image = detector.drawBoundingBoxes(screenshot, boundingBoxes)
     
     # display processed image
-    #cv2.imshow("Matches", output_image)
+    cv2.imshow("Matches", output_image)
 
     # debug loop rate
     print('FPS {}'.format(1 / (time() - loop_time)))
