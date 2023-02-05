@@ -6,7 +6,11 @@ class DebugModes(Enum):
     CONSOLE_ONLY = "console"
     FULL_DEBUG = "full"
     
-class Detector:
+class Perception:
+    """Class that is responsible for detection of the objects within 
+    the images. Computes midpoints, find objects and draws vision stuff
+    to the debug window for the user.
+    """
     
     def __init__(self, needle_img_path, algorithm = cv.TM_CCOEFF_NORMED):
         if needle_img_path:
@@ -61,7 +65,15 @@ class Detector:
 
         return rectangles
     
-    def __getPoints(self, boundingBoxes):
+    def getPoints(self, boundingBoxes):
+        """Converts bounding boxes into clickable midpoints
+
+        Args:
+            boundingBoxes (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         # modpoints of boundingBoxes of found objects
         midPoints = []    
         # loop over unpacked bounding box rectangles
