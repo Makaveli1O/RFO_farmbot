@@ -6,13 +6,20 @@ class ThreadInterface:
         pass
     
     def start(self):
+        """
+        Starts separate thread for extended class behaviour
+        """
         self.stopped = False
         t = Thread(target=self.run)
         t.start()
         
     def stop(self):
+        """
+        Shops threaed from execution in the becaground after program
+        finishes
+        """
         self.stopped = True
         
     def run(self):
-        """Implementation of the run method"""
+        """Logic of the thread work"""
         pass

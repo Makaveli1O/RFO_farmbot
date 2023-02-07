@@ -2,7 +2,7 @@ from threading import Thread, Lock
 import cv2
 from threadingInterface import ThreadInterface
 
-class Detection:
+class Detection(ThreadInterface):
     """Thread-safe detection of the object class. 
     Uses mutex semaphores to prevent multiple threads
     from reading and updating at the same time. Also uses
@@ -17,6 +17,13 @@ class Detection:
     def __init__(self, model_path):
         self.lock = Lock() # mutex semaphore
         self.cascade = cv2.CascadeClassifier(model_path)
+        
+    def getBoundingBoxes(self) -> list:
+        """
+        Returns:
+            list:  all bounding boxes on the current screenshot
+        """
+        return self.boundingBoxes
         
     def update(self, screenshot):
         """Recieves screenshot of the captured game. Locking
