@@ -1,4 +1,7 @@
-path : C:\Users\Makaveli\Desktop\Work\RFO_farmbot\opencv\opencv\build\x64\vc15\bin
+**TODO:** Use Deep-Neural-Network instead of te cascade classifier for much better real-time performance(YOLOv5)
+
+OpenCV commands/stuff
+```path to opencv : C:\Users\Makaveli\Desktop\Work\RFO_farmbot\opencv\opencv\build\x64\vc15\bin
 
 Create bounding boxes -> C:\Users\Makaveli\Desktop\Work\RFO_farmbot\opencv\opencv\build\x64\vc15\bin\opencv_annotation.exe --annotations=positive.txt --images=positive/
 
@@ -19,3 +22,4 @@ create vectors ->
 HR - HIT RATE FA - FALSE ALARM
 v poslednom layeri chceme mat FA co najmensie mozné cislo, ale bez ovetreiningu
 Overtraining - Neg COUNT acceptance Ratio - ked je tam nieco ako 0.0000454651 - moze byt overtraining. ale 0.0035 je ok
+```
