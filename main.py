@@ -1,11 +1,10 @@
 import cv2 
 import numpy as np
-from time import time,sleep
+from time import time
 from windowCapture import WindowCapture
 from perception import Perception, DebugModes
 from detection import Detection
-from rfbot import RFBot
-import pyautogui
+from rfbot import RFBot, BotState
 from threading import Thread
 
 # initialize window capture class
@@ -15,7 +14,7 @@ detector = Detection("cascadeModel_v1/cascade.xml")
 # load an empty detector class
 perception = Perception(None)
 # initialize the bot
-bot = RFBot()
+bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h))
 
 loop_time = time()
 # notify when thread is created
@@ -26,55 +25,55 @@ wincap.start()
 detector.start()
 bot.start()
 
-def doBotStuff(boundingBoxes):
-    """
-    if len(boundingBoxes) > 0:
-        targets = perception.getPoints(boundingBoxes)
-        target = wincap.get_screen_position(targets[0])
-        pyautogui.moveTo(x=target[0], y=target[1])
-        sleep(5)
-    global thread_active
-    thread_active=False
-    """
-    pass
-
-while(True):
-    
-    # prevent from processing empty screenshot
-    if wincap.screenshot is None:
-        continue
-
-    # object detection
-    detector.update(wincap.screenshot)
-    
-    # draw bounding boxes
-    output_image = perception.drawBoundingBoxes(wincap.screenshot, detector.boundingBoxes)
+try: # to be able to interrupt the program from console without showing cv2 imshow output
+    while(True):
         
-    # display processed image
-    cv2.imshow("Matches", output_image)
+        # prevent from processing empty screenshot
+        if wincap.screenshot is None:
+            continue
 
-    if not thread_active:
-        thread_active = True
-        t = Thread(target = doBotStuff, args = (detector.boundingBoxes, ))
-        t.start()
+        # object detection
+        detector.update(wincap.screenshot)
+        if bot.state == BotState.INITIALIZING:
+            targets = perception.getPoints(detector.boundingBoxes)
+            bot.update_targets(targets)
+        elif bot.state == BotState.SEARCHING:
+            targets = perception.getPoints(detector.boundingBoxes)
+            bot.update_targets(targets)
+            bot.update_screenshot(wincap.screenshot)
+        elif bot.state == BotState.ATTACKING:
+            bot.update_screenshot(wincap.screenshot)
+        
+        # draw bounding boxes
+        output_image = perception.drawBoundingBoxes(wincap.screenshot, detector.boundingBoxes)
+            
+        # display processed image
+        cv2.imshow("Matches", output_image)
 
-    # debug loop rate
-    # print('FPS {}'.format(1 / (time() - loop_time)))
-    
-    print(detector.boundingBoxes)
-    loop_time = time()
+        # debug loop rate
+        #print('FPS {}'.format(1 / (time() - loop_time)))
+        
+        # print(detector.boundingBoxes)
+        loop_time = time()
 
-    # exit loop
-    key = cv2.waitKey(1)
-    if key == ord('q'):
-        detector.stop()
-        wincap.stop()
-        bot.stop()
-        cv2.destroyAllWindows()
-        break
-    # save positive image
-    elif key == ord("f"):
-        cv2.imwrite('positive/{}.jpg'.format(loop_time), wincap.screenshot)
-    # save negative image 
-    elif key == ord("g"):
-        cv2.imwrite('negative/{}.jpg'.format(loop_time), wincap.screenshot)
+        # exit loop
+        key = cv2.waitKey(1)
+        if key == ord('q'):
+            detector.stop()
+            wincap.stop()
+            bot.stop()
+            cv2.destroyAllWindows()
+            break
+        # save positive image
+        #elif key == ord("f"):
+        #    cv2.imwrite('positive/{}.jpg'.format(loop_time), wincap.screenshot)
+        # save negative image 
+        #elif key == ord("g"):
+        #    cv2.imwrite('negative/{}.jpg'.format(loop_time), wincap.screenshot)
+except Exception as e:
+    print(e)
+    detector.stop()
+    wincap.stop()
+    bot.stop()
+    cv2.destroyAllWindows()
+    print ('\n! Received keyboard interrupt, quitting threads.\n')
