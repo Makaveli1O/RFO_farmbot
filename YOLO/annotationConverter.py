@@ -1,16 +1,16 @@
 import pybboxes as pbx
 import os
 
-cv_img_dim = (1540, 846)
-scrn_img_dim = (1785, 1071)
+DIM_21_9 = (1785, 1071) # imshow screens filip
+DIM_16_9 = (1540, 846) #filip screens
 
 # Read in annotations from text file
-with open('new_annotations.txt', 'r') as f:
+with open('annotations.txt', 'r') as f:
     annotations = f.readlines()
 # Convert annotations to YOLO format
 for annotation in annotations:
     parts = annotation.strip().split()
-    filename = parts[0][9:-4]
+    filename = parts[0][12:-4]
     numObjects = int(parts[1])
     boxes = []
     if numObjects > 0:
@@ -27,16 +27,19 @@ for annotation in annotations:
             y_max = y_min + height
             bbox = [x_min, y_min, x_max, y_max]
             
-            voc_bbox = pbx.BoundingBox.from_voc(*bbox, image_size=scrn_img_dim)
+            voc_bbox = pbx.BoundingBox.from_voc(*bbox, image_size=DIM_16_9)
             yolo_bbox = voc_bbox.to_yolo()
-            boxes.append(bbox)
+            boxes.append(yolo_bbox)
         # Write the YOLO bbox to a new file
         box_strings = []
         for i, box in enumerate(boxes):
             i = 0 # only one obj to detect
-            box_string = f"{i} {box[0]} {box[1]} {box[2]} {box[3]}"
+            vals = box.values
+            box_string = f"{i} {vals[0]} {vals[1]} {vals[2]} {vals[3]}"
             box_strings.append(box_string)
-        with open("C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\labels\\"+filename+".txt", 'a') as f_out:
-            f_out.write(' '.join(box_strings))
+            with open("C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\labels\\"+filename+".txt", 'a') as f_out:
+                f_out.write(box_string)
+                f_out.write("\n")
     else :
         continue
+print("Annotations successfully converted to YOLOv5 Pytorch")
