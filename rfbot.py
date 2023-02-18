@@ -25,7 +25,7 @@ class RFBot:
     state = None
     targets = []
     screenshot = None
-    tooltip = None
+    tooltips = []
     healthbar = None
     timestamp = None
     #constants
@@ -43,7 +43,10 @@ class RFBot:
         self.window_w = window_size[0]
         self.window_h = window_size[1]
         
-        self.tooltip = cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED)
+        self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
+        
         self.healthbar = cv2.imread('healthbar_full.jpg', cv2.IMREAD_UNCHANGED)
         self.mobbar = cv2.imread('healthbar_big_full.jpg', cv2.IMREAD_UNCHANGED)
         self.state = BotState.INITIALIZING
@@ -109,7 +112,7 @@ class RFBot:
         result = cv2.matchTemplate(self.screenshot, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
-            print(max_val)
+            print("Helthbar found at: ", max_val)
             return True
         return False
     
@@ -164,13 +167,14 @@ class RFBot:
         Returns:
             bool: True or false if correct tooltip is found.
         """
-        # check screenshot for tooltip
-        result = cv2.matchTemplate(self.screenshot, self.tooltip, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
-            
-            return True
-        print(max_val)
+        # check screenshot for tooltips
+        for tooltip in self.tooltips:
+            result = cv2.matchTemplate(self.screenshot, tooltip, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
+                print("Tooltip {} found: {}".format(tooltip, max_val))
+                return True
+   
         return False
         
         
