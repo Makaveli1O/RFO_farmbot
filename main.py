@@ -46,12 +46,16 @@ try: # to be able to interrupt the program from console without showing cv2 imsh
         
         # draw bounding boxes
         output_image = perception.drawBoundingBoxes(wincap.screenshot, detector.boundingBoxes)
+        output_image = perception.drawFPS(output_image,
+                                          int(1 / (time() - loop_time)),
+                                          wincap.h,
+                                          wincap.w)
             
         # display processed image
         cv2.imshow("Matches", output_image)
 
         # debug loop rate
-        #print('FPS {}'.format(1 / (time() - loop_time)))
+        # print('FPS {}'.format(1 / (time() - loop_time)))
         
         # print(detector.boundingBoxes)
         loop_time = time()
@@ -70,8 +74,7 @@ try: # to be able to interrupt the program from console without showing cv2 imsh
         # save negative image 
         #elif key == ord("g"):
         #    cv2.imwrite('negative/{}.jpg'.format(loop_time), wincap.screenshot)
-except Exception as e:
-    print(e)
+except KeyboardInterrupt as e:
     detector.stop()
     wincap.stop()
     bot.stop()

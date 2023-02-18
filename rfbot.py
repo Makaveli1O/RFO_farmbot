@@ -112,7 +112,6 @@ class RFBot:
         result = cv2.matchTemplate(self.screenshot, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
-            print("Helthbar found at: ", max_val)
             return True
         return False
     
@@ -147,7 +146,6 @@ class RFBot:
             pyautogui.moveTo(x = xpos, y = ypos)
             # confirm position by checking tooltip name
             if self.confirmTooltip(target):
-                # print("Click confirmed at x:{} y:{} ")
                 targetFound = True
                 pyautogui.click()
             else:

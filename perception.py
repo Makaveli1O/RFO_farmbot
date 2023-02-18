@@ -119,6 +119,24 @@ class Perception:
             
         return heystack_img
 
+    def drawFPS(self, screenshot, frame_rate, window_h, window_w):
+        frame_rate = str(frame_rate)
+        font = cv.FONT_HERSHEY_SIMPLEX
+        bottomLeftCornerOfText = (window_w - 100,window_h-10)
+        fontScale = 0.8
+        fontColor = (0,255,0)
+        thickness = 1
+        lineType = 2
+        cv.putText(screenshot, frame_rate, 
+            bottomLeftCornerOfText, 
+            font, 
+            fontScale,
+            fontColor,
+            thickness,
+            lineType)
+        
+        return screenshot
+        
     def drawMidPoints(self, heystack_img, points):
         marker_color = (255, 0, 255)
         marker_type = cv.MARKER_CROSS
