@@ -1,6 +1,9 @@
 from threading import Thread, Lock
 import cv2
 from threadingInterface import ThreadInterface
+import numpy as np
+import time
+from screenshot import Screenshot
 
 class Detection(ThreadInterface):
     """Thread-safe detection of the object class. 
@@ -11,12 +14,18 @@ class Detection(ThreadInterface):
     stopped = True
     lock = None
     boundingBoxes = []
-    cascade = None
     screenshot = None
+    net = None
+    colors = []
+    conf_threshold = 0.5
+    nms_threshold = 0.4
     
     def __init__(self, model_path):
         self.lock = Lock() # mutex semaphore
-        self.cascade = cv2.CascadeClassifier(model_path)
+        self.net = cv2.dnn.readNetFromTorch(model_path) # load
+        self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3)) # random bb color
+        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         
     def getBoundingBoxes(self) -> list:
         """
@@ -25,7 +34,7 @@ class Detection(ThreadInterface):
         """
         return self.boundingBoxes
         
-    def update(self, screenshot):
+    def update(self, screenshot : Screenshot) -> None:
         """Recieves screenshot of the captured game. Locking
         the semaphore before assigning it and releasing it
         afterwards is crucial for multi threading.
@@ -49,9 +58,30 @@ class Detection(ThreadInterface):
         """Implementation of the run method"""
         while not self.stopped:
             if not self.screenshot is None:
-                # do object detection
-                boundingBoxes = self.cascade.detectMultiScale(self.screenshot)
-                # lock the thread while updating the results
+                (H, W) = self.screenshot.getDimensions()
+                # create input blob
+                blob = cv2.dnn.blobFromImage(self.screenshot, 1 / 255.0, (416, 416), swapRB=True, crop=False)
+                # set input blob
+                self.net.setInput(blob)
+                # get output layer names
+                layer_names = self.net.getLayerNames()
+                layer_names = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
+                # forward pass
+                start = time.time()
+                outputs = self.net.forward(layer_names)
+                end = time.time()
+                # process detections
                 self.lock.acquire()
-                self.boundingBoxes = boundingBoxes
+                self.boundingBoxes = []
+                for output in outputs:
+                    for detection in output:
+                        scores = detection[5:]
+                        classID = np.argmax(scores)
+                        confidence = scores[classID]
+                        if confidence > self.threshold:
+                            box = detection[0:4] * np.array([W, H, W, H])
+                            (centerX, centerY, width, height) = box.astype("int")
+                            x = int(centerX - (width / 2))
+                            y = int(centerY - (height / 2))
+                            self.boundingBoxes.append([x, y, int(width), int(height)])
                 self.lock.release()
