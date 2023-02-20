@@ -30,7 +30,6 @@ class Perception:
         algorithm to recieve number btwn 0 and 1. 1 indicading closest matched pixels.
         min, max values from minMaxLoc is ALWAYS returned. This is why there is a 
         threshold to detect real matches from the fake ones.
-
         Args:
             needle_img_path (_type_): _description_
             heystack_img (_type_): _description_
@@ -67,10 +66,8 @@ class Perception:
     
     def getPoints(self, boundingBoxes):
         """Converts bounding boxes into clickable midpoints
-
         Args:
             boundingBoxes (_type_): _description_
-
         Returns:
             _type_: _description_
         """
@@ -88,7 +85,6 @@ class Perception:
         """Returns a list of rectangles {x,y,w,h}
         x,y -> coordinates of upper left corner
         w,h -> width and height 
-
         Args:
             locations (_type_): _description_
         """
@@ -119,24 +115,6 @@ class Perception:
             
         return heystack_img
 
-    def drawFPS(self, screenshot, frame_rate, window_h, window_w):
-        frame_rate = str(frame_rate)
-        font = cv.FONT_HERSHEY_SIMPLEX
-        bottomLeftCornerOfText = (window_w - 100,window_h-10)
-        fontScale = 0.8
-        fontColor = (0,255,0)
-        thickness = 1
-        lineType = 2
-        cv.putText(screenshot, frame_rate, 
-            bottomLeftCornerOfText, 
-            font, 
-            fontScale,
-            fontColor,
-            thickness,
-            lineType)
-        
-        return screenshot
-        
     def drawMidPoints(self, heystack_img, points):
         marker_color = (255, 0, 255)
         marker_type = cv.MARKER_CROSS
@@ -145,4 +123,4 @@ class Perception:
             # draw the center point
             cv.drawMarker(heystack_img, (center_x, center_y), marker_color, marker_type)
 
-        return heystack_img
+        return 
