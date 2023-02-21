@@ -5,6 +5,7 @@ from enum import Enum
 import math
 import cv2
 
+
 class BotState(Enum):
     SEARCHING = 0
     ATTACKING = 1
@@ -42,13 +43,14 @@ class RFBot:
         self.window_offset = window_offset
         self.window_w = window_size[0]
         self.window_h = window_size[1]
-        
+        """
         self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
         
         self.healthbar = cv2.imread('healthbar_full.jpg', cv2.IMREAD_UNCHANGED)
         self.mobbar = cv2.imread('healthbar_big_full.jpg', cv2.IMREAD_UNCHANGED)
+        """
         self.state = BotState.INITIALIZING
         self.timestamp = time()
         
@@ -74,18 +76,18 @@ class RFBot:
         
     def run(self):
         while not self.stopped:
-        
             if self.state == BotState.INITIALIZING:
-                #print("Initializing")
-               # do no bot actions until the startup waiting period is complete
+                print("Initializing")
+                # do no bot actions until the startup waiting period is complete
                 if time() > self.timestamp + self.INITIALIZINT_TIME:
-                    # start searching when the waiting period is over
                     self.lock.acquire()
                     self.state = BotState.SEARCHING
                     self.lock.release()
-
+            
             elif self.state == BotState.SEARCHING:
+                print("Searching")
                 success = self.clickTarget()
+                
                 # target found
                 if success:
                     self.lock.acquire()
@@ -96,6 +98,8 @@ class RFBot:
                     continue
                 
             elif self.state == BotState.ATTACKING:
+                print(self.state)
+                return
                 if self.mobBarFound():
                     pyautogui.press("space")
                     self.lock.acquire()
@@ -139,6 +143,7 @@ class RFBot:
                 break
             # load next target and get coords
             target = targets[i]
+            print(target)
 
             xpos, ypos = self.getScreenPosition(target)
             # print('Moving mouse to x:{} y:{}'.format(xpos, ypos))

@@ -41,18 +41,6 @@ if __name__ == '__main__':
         detections = sv.Detections.from_yolov8(result)
         # get midpoints from boundingboxes
         targets = perception.getPoints(detections.xyxy)
-        """
-        detector.update(wincap.screenshot)
-        if bot.state == BotState.INITIALIZING:
-            targets = perception.getPoints(detector.boundingBoxes)
-            bot.update_targets(targets)
-        elif bot.state == BotState.SEARCHING:
-            targets = perception.getPoints(detector.boundingBoxes)
-            bot.update_targets(targets)
-            bot.update_screenshot(wincap.screenshot)
-        elif bot.state == BotState.ATTACKING:
-            bot.update_screenshot(wincap.screenshot)
-        """
         frame = box_annotator.annotate(scene=frame, detections=detections)
         cv.putText(frame, "FPS: "+str(round(1 / (time() - loop_time))), fontPosition, font, fontScale, fontColor, thickness)
         

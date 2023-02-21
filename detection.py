@@ -1,6 +1,8 @@
 from threading import Thread, Lock
 import cv2
 from threadingInterface import ThreadInterface
+import supervision as sv
+from ultralytics import YOLO
 
 class Detection(ThreadInterface):
     """Thread-safe detection of the object class. 
@@ -11,12 +13,13 @@ class Detection(ThreadInterface):
     stopped = True
     lock = None
     boundingBoxes = []
-    cascade = None
+    detections = None
+    model = None
     screenshot = None
     
-    def __init__(self, model_path):
+    def __init__(self, model_path) -> None:
         self.lock = Lock() # mutex semaphore
-        self.cascade = cv2.CascadeClassifier(model_path)
+        self.model = YOLO(model_path)
         
     def getBoundingBoxes(self) -> list:
         """
@@ -49,8 +52,11 @@ class Detection(ThreadInterface):
         while not self.stopped:
             if not self.screenshot is None:
                 # do object detection
-                boundingBoxes = self.cascade.detectMultiScale(self.screenshot)
+                result = self.model(self.screenshot)[0] # 0th index because cuda returns list for some reason
+                detections = sv.Detections.from_yolov8(result)
+                boundingBoxes = detections.xyxy
                 # lock the thread while updating the results
                 self.lock.acquire()
+                self.detections = detections
                 self.boundingBoxes = boundingBoxes
                 self.lock.release()

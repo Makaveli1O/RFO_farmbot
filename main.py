@@ -5,53 +5,70 @@ from windowCapture import WindowCapture
 from perception import Perception, DebugModes
 from detection import Detection
 from rfbot import RFBot, BotState
-from threading import Thread
-
+import yappi
+import sys
 # initialize window capture class
 wincap = WindowCapture('RF Online')
-# load trained model into detector
-detector = Detection("cascadeModel_v1/cascade.xml")
-# load an empty detector class
+# loads perception class for visualization and points calculations
 perception = Perception(None)
+# load trained model into detector
+detector = Detection("C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\runs\\detect\\train3\\weights\\best.pt")
 # initialize the bot
 bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h))
 
 loop_time = time()
 # notify when thread is created
 thread_active = False
-
+#yappi.start(False, True)
 # start threads 
 wincap.start()
+bot.start() #bot is slowing it down a lot
 detector.start()
-bot.start()
 
+
+def getFps() -> int:
+    """Get fps calculation. When too early during initialization
+    return 0 instead of excepion.
+
+    Returns:
+        int
+    """
+    
+    try:
+        fps = round(1 / (time() - loop_time))
+    except Exception as e:
+        fps = 0
+    return fps 
 try: # to be able to interrupt the program from console without showing cv2 imshow output
     while(True):
         
         # prevent from processing empty screenshot
         if wincap.screenshot is None:
             continue
-
         # object detection
         detector.update(wincap.screenshot)
+        
         if bot.state == BotState.INITIALIZING:
             targets = perception.getPoints(detector.boundingBoxes)
             bot.update_targets(targets)
+        
         elif bot.state == BotState.SEARCHING:
             targets = perception.getPoints(detector.boundingBoxes)
             bot.update_targets(targets)
             bot.update_screenshot(wincap.screenshot)
+        """
         elif bot.state == BotState.ATTACKING:
             bot.update_screenshot(wincap.screenshot)
-        
+        """
         # draw bounding boxes
-        output_image = perception.drawBoundingBoxes(wincap.screenshot, detector.boundingBoxes)
-            
+        output_image = perception.drawVision(wincap.screenshot, detector.detections)
+        output_image = perception.drawMidPoints(wincap.screenshot, perception.getPoints(detector.boundingBoxes))
+        # debug loop rate
+        perception.drawFPS(output_image,
+                           getFps(),
+                           (wincap.w - 100, wincap.h - 10)) # wincap.dims + padding
         # display processed image
         cv2.imshow("Matches", output_image)
-
-        # debug loop rate
-        #print('FPS {}'.format(1 / (time() - loop_time)))
         
         # print(detector.boundingBoxes)
         loop_time = time()
@@ -70,10 +87,14 @@ try: # to be able to interrupt the program from console without showing cv2 imsh
         # save negative image 
         #elif key == ord("g"):
         #    cv2.imwrite('negative/{}.jpg'.format(loop_time), wincap.screenshot)
+        
 except Exception as e:
+    print("EXCEPTION IN THE MAIN WHILE LOOP: \n------------------------------------\n")
     print(e)
     detector.stop()
     wincap.stop()
     bot.stop()
     cv2.destroyAllWindows()
-    print ('\n! Received keyboard interrupt, quitting threads.\n')
+#yappi.stop()
+#stats = yappi.get_func_stats().sort('tsub').strip_dirs()
+#stats.print_all(out=sys.stderr, columns={0: ('name', 45), 1: ('ncall', 10), 2: ('tsub', 8), 3: ('ttot', 8), 4: ('tavg', 8)})
