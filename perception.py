@@ -12,11 +12,11 @@ class Perception:
     the images. Computes midpoints, find objects and draws vision stuff
     to the debug window for the user.
     """
-    FPS_LOW = 20
-    FPS_MID = 30
-    FPS_MID_HIGH = 50
-    FPS_HIGH = 60
-    FPS_ULTRA = 120
+    FPS_LOW = 15
+    FPS_MID = 20
+    FPS_MID_HIGH = 25
+    FPS_HIGH = 35
+    FPS_ULTRA = 60
     
     RED = (255, 0, 0)
     ORANGE = (255, 165, 0)
@@ -91,8 +91,8 @@ class Perception:
         # modpoints of boundingBoxes of found objects
         midPoints = []    
         # loop over unpacked bounding box rectangles
-        for (x, y, w, h) in boundingBoxes:
-            midPoints.append(self.__getMidPoint(x, y, w ,h))
+        for (x1, y1, x2, y2) in boundingBoxes:
+            midPoints.append(self.__getMidPointYolo(x1, y1, x2 ,y2))
         return midPoints
         
     def __buildBoundingBoxes(self, locations, needle_w, needle_h) -> int | None:
@@ -116,7 +116,21 @@ class Perception:
         return rectangles
 
     def __getMidPoint(self, x, y, w, h) -> int :
+        """@DEPRECATED
+
+        Args:
+            x (_type_): _description_
+            y (_type_): _description_
+            w (_type_): _description_
+            h (_type_): _description_
+
+        Returns:
+            int: _description_
+        """
         return (x + int(w / 2), y + int(h / 2))
+    
+    def __getMidPointYolo(self, x1, y1, x2, y2) -> int:
+        return (int((x1+x2)/2), int((y1+y2)/2))
     
     def drawFPS(self, frame, fps,
                 fontPosition = (0,0),
@@ -124,6 +138,22 @@ class Perception:
                 thickness = 2,
                 font = cv.FONT_HERSHEY_SIMPLEX,
                 fontScale = 0.8) -> None:
+        """Draws a fps to bottom right corner. Color changes based on performance
+
+        Args:
+            frame (cv_im): processed frame
+            fps (int): calculated fps
+            fontPosition (tuple, optional): _description_. Defaults to (0,0).
+            fontColor (tuple, optional): _description_. Defaults to (0, 255, 0).
+            thickness (int, optional): _description_. Defaults to 2.
+            font (_type_, optional): _description_. Defaults to cv.FONT_HERSHEY_SIMPLEX.
+            fontScale (float, optional): _description_. Defaults to 0.8.
+
+        Returns:
+            _type_: _description_
+        """
+        if frame is None:
+            return frame
         if fps < self.FPS_MID:
             fontColor = self.RED
         elif fps >= self.FPS_MID and fps <= self.FPS_MID_HIGH:
@@ -140,13 +170,21 @@ class Perception:
                    fontScale,
                    fontColor,
                    thickness)
+        return frame
     
-    def drawVision(self, input_frame, detections):
-        # until all threads are activated (detector takes long to load YOLO)
-        # do not annotate at all
+    def drawVision(self, input_frame, detections, labels):
+        """Draws annotations to detected objects
+
+        Args:
+            input_frame (cv_im): Processed image
+            detections (sv.Detection): Detected objects
+
+        Returns:
+            _type_: _description_
+        """
         if detections is None:
             return input_frame
-        output_frame = self.box_annotator.annotate(scene=input_frame, detections=detections)
+        output_frame = self.box_annotator.annotate(scene=input_frame, detections=detections, labels=labels)
         return output_frame
 
     def drawMidPoints(self, heystack_img, points):
@@ -163,10 +201,10 @@ class Perception:
         marker_color = (255, 0, 255)
         marker_type = cv.MARKER_CROSS
 
-        for (center_x, center_y) in points:
+        for (center_x, center_y) in self.__getMidPointYolo(points):
             # draw the center point
             try:
-                cv.drawMarker(heystack_img, (center_x, center_y), marker_color, marker_type)
+                cv.drawMarker(heystack_img, (int(center_x), int(center_y)), marker_color, marker_type)
             except Exception as e:
                 print(e)
 

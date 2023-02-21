@@ -2,14 +2,24 @@ from ultralytics import YOLO
 import cv2 as cv
 from windowCaptureYOLO import WindowCapture
 from time import time
-from ultralytics import YOLO
 import supervision as sv
-from perceptionYOLO import PerceptionYOLO
+from perception import Perception
+from rfbot import RFBot, BotState
+import pyautogui
+    
+def getFps() -> int:
+    """Get fps calculation. When too early during initialization
+    return 0 instead of excepion.
 
-class Detection:
-    xyxy = None
-    confidence = None
-    class_id = None
+    Returns:
+        int
+    """
+    
+    try:
+        fps = round(1 / (time() - loop_time))
+    except Exception as e:
+        fps = 0
+    return fps
     
 font = cv.FONT_HERSHEY_SIMPLEX
 fontScale = 0.8
@@ -19,11 +29,11 @@ thickness = 2
 
 if __name__ == '__main__':
     wincap = WindowCapture('RF Online')
-    perception = PerceptionYOLO()
+    perception = Perception(None)
     fontPosition = (wincap.w - 300, wincap.h)
+    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h))
     # load a model
-    model = YOLO("C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\runs\\detect\\train3\\weights\\best.pt")
-    
+    model = YOLO(model="C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\yolo_caliana_v1(250epochs).pt")
     box_annotator = sv.BoxAnnotator(
         thickness=2,
         text_thickness=2,
@@ -37,12 +47,29 @@ if __name__ == '__main__':
             continue
         # capture the frame
         frame = wincap.screenshot.getImage()
-        result = model(frame)[0] # 0th index because cuda returns list for some reason
+        result = model.predict(
+                    source=frame,
+                    conf=0.7
+                 )[0]#model(frame)[0] # 0th index because cuda returns list for some reason
         detections = sv.Detections.from_yolov8(result)
-        # get midpoints from boundingboxes
+        labels = [
+            f"{model.model.names[class_id]} {confidence:0.7f}"
+            for _, confidence, class_id, _
+            in detections
+        ]
         targets = perception.getPoints(detections.xyxy)
-        frame = box_annotator.annotate(scene=frame, detections=detections)
-        cv.putText(frame, "FPS: "+str(round(1 / (time() - loop_time))), fontPosition, font, fontScale, fontColor, thickness)
+        # bot stuff
+        if targets:
+            # hover over target
+            #bot.run(targets)
+            xpos, ypos = bot.getScreenPosition(targets[0])
+            pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
+        # annotations, vision etc.
+        frame = perception.drawVision(frame, detections, labels)#box_annotator.annotate(scene=frame, detections=detections)
+        perception.drawFPS(frame,
+                           getFps(),
+                           (wincap.w - 100, wincap.h - 10)) # wincap.dims + padding
+        #cv.putText(frame, "FPS: "+str(getFps()), fontPosition, font, fontScale, fontColor, thickness)
         
         cv.imshow("yolov8", frame)
         

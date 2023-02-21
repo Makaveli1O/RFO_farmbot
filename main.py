@@ -53,16 +53,16 @@ try: # to be able to interrupt the program from console without showing cv2 imsh
             bot.update_targets(targets)
         
         elif bot.state == BotState.SEARCHING:
+            bot.update_screenshot(wincap.screenshot)
             targets = perception.getPoints(detector.boundingBoxes)
             bot.update_targets(targets)
-            bot.update_screenshot(wincap.screenshot)
         """
         elif bot.state == BotState.ATTACKING:
             bot.update_screenshot(wincap.screenshot)
         """
         # draw bounding boxes
         output_image = perception.drawVision(wincap.screenshot, detector.detections)
-        output_image = perception.drawMidPoints(wincap.screenshot, perception.getPoints(detector.boundingBoxes))
+        #output_image = perception.drawMidPoints(wincap.screenshot, detector.boundingBoxes)
         # debug loop rate
         perception.drawFPS(output_image,
                            getFps(),
