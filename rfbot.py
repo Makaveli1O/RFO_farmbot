@@ -4,6 +4,7 @@ from time import time, sleep
 from enum import Enum
 import math
 import cv2
+from threadingInterface import ThreadInterface
 
 
 class BotState(Enum):
@@ -12,7 +13,7 @@ class BotState(Enum):
     INITIALIZING = 2
     MOVING = 3
 
-class RFBot:
+class RFBot(ThreadInterface):
     """
     Returns:
         RFBot: Actual bot behaviour. !WORK IN PROGRESS!.
@@ -35,7 +36,7 @@ class RFBot:
     IGNORE_RADIUS = 130
     TOOLTIP_MATCH_THRESHOLD = 0.75 # tooltip over other mobs is around 0.60, match is 0.90 +/-
     MOB_BAR_MATCH_THRESHOLD = 0.85
-    HEALTHBAR_MATCH_THRESHOLD = 0.75 
+    HEALTHBAR_MATCH_THRESHOLD = 0.82 
     
     def __init__(self, window_offset, window_size):
         self.lock = Lock()
@@ -54,27 +55,40 @@ class RFBot:
         self.state = BotState.INITIALIZING
         self.timestamp = time()
         
-    def updateFrame(self, frame):
-        self.screenshot = frame
-    def run(self, targets):
-        success = self.clickTarget(targets)
-        # target found
-        if success:
-            self.state = BotState.ATTACKING
-        else:
-            # keep searching
-            return
-            
-    def healthBarFound(self):
-        print("Healthbar check!")
-        # check screenshot for tooltip
-        result = cv2.matchTemplate(self.screenshot, self.healthbar, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
-            return True
-        return False
+    def update_targets(self, targets):
+        self.lock.acquire()
+        self.targets = targets
+        self.lock.release()
         
-    def clickTarget(self, targets):
+    def update_screenshot(self, screenshot):
+        self.lock.acquire()
+        self.screenshot = screenshot
+        self.lock.release()
+    def updateFrame(self, frame):
+        self.lock.acquire()
+        self.screenshot = frame
+        self.lock.release()
+        
+    def start(self):
+        self.stopped = False
+        t = Thread(target=self.run)
+        t.start()
+        
+    def stop(self):
+        self.stopped = True
+    
+    def run(self):
+        while not self.stopped:
+            success = self.clickTarget()
+            # target found
+            if success:
+                print("attack")
+                self.state = BotState.ATTACKING
+            else:
+                # keep searching
+                return
+    
+    def clickTarget(self):
         """Targets are ordered by distance from center. Closest target is selected to move
         mouse over. Afterwards tooltip above the mob is cross matched to confirm the correctness
         of the finding.
@@ -83,8 +97,10 @@ class RFBot:
             tuple: found target
         """
         #targets = self.orderByDistance(targets)
+        targets = self.targets
         targetFound = False
         i = 0
+        # pick one and click
         while not targetFound and i < len(targets):
             # load next target and get coords
             target = targets[i]
@@ -92,42 +108,49 @@ class RFBot:
 
             xpos, ypos = self.getScreenPosition(target)
             # move mouse
-            pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
-            print('Moving mouse to x:{} y:{}'.format(xpos, ypos))
+            #pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
             # click target
-            pyautogui.click()
+            #pyautogui.click()
             
-            #if self.healthBarFound():
-            #    targetFound = True
+            if self.healthBarFound():
+                # press space
+                targetFound = True
+                
             i += 1
-        #if self.healthBarFound():
-        #    targetFound = True
-
         return targetFound
+            
+    def healthBarFound(self):
+        # check screenshot for tooltip
+        
+        template_size = (250, 63)
+        partial_frame = self.cropFrame(template_size)
+        result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        print(max_val)
+        if max_val >= 0.99:
+            return True
+        return False
     
-    def confirmTooltip(self, target) -> bool:
-        """
-        @DEPRECATED
-        Check whether given tooltip is in the screenshot.
-        TODO: Optimization, only check near the mouse
-
+    def cropFrame(self, template_size : tuple, debug_mode = False):
+        """Crops top-center part of the frame where healthbar should be.
+        TODO crop a little better and try different resolutions
         Args:
-            target (_type_): _description_
+            template_size (tuple): dimensions of the frame that is about to be cropped
 
         Returns:
-            bool: True or false if correct tooltip is found.
+            cv_image: _cropped image
         """
-        # check screenshot for tooltips
-        for tooltip in self.tooltips:
-            result = cv2.matchTemplate(cv2.cvtColor(self.screenshot, cv2.COLOR_BGR2GRAY), tooltip, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
-                print("Tooltip {} found: {}".format(tooltip, max_val))
-                return True
-   
-        return False
-        
-        
+        height, width = self.screenshot.shape[:2]
+        # calculate coords for the box
+        top_left = (int(width / 2) - template_size[0]//2, 40 - template_size[1]//2)
+        bottom_right = (int(width / 2) + template_size[0]//2, 100 + template_size[1]//2)
+        # Extract portion of the frame
+        portion = self.screenshot[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+        if debug_mode:
+            cv2.imshow("cropped", portion)
+        return portion
+    
+
     def orderByDistance(self, targets):
         """Order found bounding boxes by pythagorean distance from the center.
 

@@ -44,6 +44,7 @@ if __name__ == '__main__':
     loop_time = time()
     # capture window screens 
     wincap.start()
+    bot.start()
     while(True):
         if wincap.screenshot is None:
             continue
@@ -64,8 +65,9 @@ if __name__ == '__main__':
         # bot stuff
         if targets:
             bot.updateFrame(frame)
+            bot.update_targets(targets)
             # hover over target
-            bot.run(targets)
+            bot.run()
             
             #xpos, ypos = bot.getScreenPosition(targets[0])
             #pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
@@ -82,6 +84,7 @@ if __name__ == '__main__':
         key = cv.waitKey(1)
         if key == ord('q'):
             wincap.stop()
+            bot.stop()
             break
-        
+    bot.stop()
     wincap.stop()
