@@ -54,9 +54,10 @@ class RFBot:
         self.state = BotState.INITIALIZING
         self.timestamp = time()
         
+    def updateFrame(self, frame):
+        self.screenshot = frame
     def run(self, targets):
         success = self.clickTarget(targets)
-        print(success)
         # target found
         if success:
             self.state = BotState.ATTACKING
@@ -65,18 +66,11 @@ class RFBot:
             return
             
     def healthBarFound(self):
+        print("Healthbar check!")
         # check screenshot for tooltip
         result = cv2.matchTemplate(self.screenshot, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
-            return True
-        return False
-    
-    def mobBarFound(self):
-        # check screenshot for tooltip
-        result = cv2.matchTemplate(self.screenshot, self.mobbar, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        if max_val >= self.MOB_BAR_MATCH_THRESHOLD:
             return True
         return False
         
@@ -88,7 +82,7 @@ class RFBot:
         Returns:
             tuple: found target
         """
-        targets = self.orderByDistance(targets)
+        #targets = self.orderByDistance(targets)
         targetFound = False
         i = 0
         while not targetFound and i < len(targets):
@@ -97,29 +91,24 @@ class RFBot:
             #print(target)
 
             xpos, ypos = self.getScreenPosition(target)
-            print('Moving mouse to x:{} y:{}'.format(xpos, ypos))
-            #marker_color = (0, 0, 255)
-            #marker_type = cv2.MARKER_CROSS
-            #cv2.drawMarker(self.screenshot, (xpos, ypos), marker_color, marker_type)
             # move mouse
             pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
+            print('Moving mouse to x:{} y:{}'.format(xpos, ypos))
+            # click target
+            pyautogui.click()
             
-            # confirm position by checking tooltip name
-            # TODO FIX
-            """
-            if self.confirmTooltip(target):
-                targetFound = True
-                pyautogui.click()
-            else:
-                pass
-                # print("Incorrect mob found.")
-            """
+            #if self.healthBarFound():
+            #    targetFound = True
             i += 1
+        #if self.healthBarFound():
+        #    targetFound = True
 
         return targetFound
     
     def confirmTooltip(self, target) -> bool:
-        """Check whether given tooltip is in the screenshot.
+        """
+        @DEPRECATED
+        Check whether given tooltip is in the screenshot.
         TODO: Optimization, only check near the mouse
 
         Args:
