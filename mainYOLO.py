@@ -64,7 +64,7 @@ if __name__ == '__main__':
         targets = perception.getPoints(detections.xyxy)
         print(bot.state)
         # bot stuff
-        """        
+              
         if targets:
             bot.updateFrame(frame)
             bot.update_targets(targets)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
         else:
             bot.updateFrame(frame)
             bot.runAutoAttack()
-            """
+        
         # annotations, vision etc.
         frame = perception.drawVision(frame, detections, labels)#box_annotator.annotate(scene=frame, detections=detections)
         perception.drawFPS(frame,
