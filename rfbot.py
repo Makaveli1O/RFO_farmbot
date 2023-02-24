@@ -1,6 +1,6 @@
 from threading import Lock, Thread
 import pyautogui
-from time import time, sleep
+from time import time, sleep, monotonic
 from enum import Enum
 import math
 import cv2
@@ -12,6 +12,7 @@ class BotState(Enum):
     ATTACKING = 1
     INITIALIZING = 2
     MOVING = 3
+    WAITING = 4
 
 class RFBot(ThreadInterface):
     """
@@ -23,6 +24,7 @@ class RFBot(ThreadInterface):
     window_offset = (0,0)
     window_w = 1920
     window_h = 1080
+    wincapRef = None
     
     state = None
     targets = []
@@ -34,13 +36,13 @@ class RFBot(ThreadInterface):
     INITIALIZINT_TIME = 5
     ATTACKING_TIME = 2
     IGNORE_RADIUS = 130
-    TOOLTIP_MATCH_THRESHOLD = 0.75 # tooltip over other mobs is around 0.60, match is 0.90 +/-
-    MOB_BAR_MATCH_THRESHOLD = 0.85
-    HEALTHBAR_MATCH_THRESHOLD = 0.82 
+    TOOLTIP_MATCH_THRESHOLD = 0.65 # tooltip over other mobs is around 0.60, match is 0.90 +/-
+    HEALTHBAR_MATCH_THRESHOLD = 0.50
     
-    def __init__(self, window_offset, window_size):
+    def __init__(self, window_offset, window_size, wincapRef):
         self.lock = Lock()
-        
+        self.last_click_time = monotonic()
+        self.wincapRef = wincapRef
         self.window_offset = window_offset
         self.window_w = window_size[0]
         self.window_h = window_size[1]
@@ -54,20 +56,17 @@ class RFBot(ThreadInterface):
         
         self.state = BotState.INITIALIZING
         self.timestamp = time()
+        # IMPORTANT THIS ELIMINATES "fail-safe" feature to help in case your script is buggy
+        # https://stackoverflow.com/questions/46736652/pyautogui-press-causing-lag-when-called
+        pyautogui.PAUSE = 0
         
     def update_targets(self, targets):
-        self.lock.acquire()
         self.targets = targets
-        self.lock.release()
         
     def update_screenshot(self, screenshot):
-        self.lock.acquire()
         self.screenshot = screenshot
-        self.lock.release()
     def updateFrame(self, frame):
-        self.lock.acquire()
         self.screenshot = frame
-        self.lock.release()
         
     def start(self):
         self.stopped = False
@@ -76,17 +75,62 @@ class RFBot(ThreadInterface):
         
     def stop(self):
         self.stopped = True
-    
+        
+    def runAutoAttack(self) -> bool:
+        if self.__healthBarFound():
+            print("Searchbar is present!")
+            print("Press space")
+            current_time = monotonic()
+            time_since_last_click = current_time - self.last_click_time
+            if time_since_last_click < 1: # only allow a new click after 1 second
+                return True
+
+            # perform space press
+            pyautogui.press("space")
+
+            # update last click time
+            self.last_click_time = current_time
+        else:
+            self.state = BotState.SEARCHING
+            return False
     def run(self):
-        while not self.stopped:
-            success = self.clickTarget()
-            # target found
-            if success:
-                print("attack")
-                self.state = BotState.ATTACKING
-            else:
-                # keep searching
+        # simetimes, healthbar is present but state changes to searching
+        if self.__healthBarFound():
+            print("Searchbar is present!")
+            print("Press space")
+            current_time = monotonic()
+            time_since_last_click = current_time - self.last_click_time
+            if time_since_last_click < 1: # only allow a new click after 1 second
                 return
+
+            # perform space press
+            pyautogui.press("space")
+
+            # update last click time
+            self.last_click_time = current_time
+        else:
+            self.state = BotState.SEARCHING
+            # target found
+            if self.state == BotState.INITIALIZING:
+                # do no bot actions until the startup waiting period is complete
+                print("Initializing bpt..")
+                if time() > self.timestamp + self.INITIALIZINT_TIME:
+                    self.state = BotState.SEARCHING
+
+            elif self.state == BotState.SEARCHING:
+                
+                success = self.clickTarget()
+
+                # if successful, switch state to attacking
+                if success:
+                    self.state = BotState.ATTACKING
+                else:
+                    print("clicktarget was not succesfull returning to main loop.")
+                    print("Clearing targets")
+                    self.update_targets([])
+                    return
+                
+            
     
     def clickTarget(self):
         """Targets are ordered by distance from center. Closest target is selected to move
@@ -96,62 +140,98 @@ class RFBot(ThreadInterface):
         Returns:
             tuple: found target
         """
-        #targets = self.orderByDistance(targets)
+        targets = self.__orderByDistance(targets)
         targets = self.targets
         targetFound = False
         i = 0
         # pick one and click
-        while not targetFound and i < len(targets):
-            # load next target and get coords
+        #while not targetFound and i < len(targets):
+        # load next target and get coords
+        try:
             target = targets[i]
-            #print(target)
+        except:
+            print("Targets are empty")
+            return
 
-            xpos, ypos = self.getScreenPosition(target)
-            # move mouse
-            #pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
+        xpos, ypos = self.getScreenPosition(target)
+        # move mouse
+        pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
+        
+        #toolbar check
+        offsetY = 25
+        if self.__tooltipFound((xpos,ypos - offsetY)):
+            print("tooltip found! CLICK!")         
             # click target
-            #pyautogui.click()
+            pyautogui.click()
+            return True
+        else:
+            #tooltip not found give few new frames to check
+            print("not found!")
+            i = 0
+            while not self.__tooltipFound((xpos,ypos - offsetY)):
+                if i > 5:
+                    print("Tooltip not found.")
+                    return False
+                print("Update frame " + str(i))
+                self.update_screenshot(self.wincapRef.screenshot.getImage())
+                i += 1
+            # tooltip found  
+            pyautogui.click()
+            return True
             
-            if self.healthBarFound():
-                # press space
-                targetFound = True
-                
-            i += 1
-        return targetFound
-            
-    def healthBarFound(self):
+    def __healthBarFound(self):
         # check screenshot for tooltip
         
-        template_size = (250, 63)
-        partial_frame = self.cropFrame(template_size)
+        height, width = self.screenshot.shape[:2]
+        # TODO pixels exact numbers should be calculated by percentages
+        partial_frame = self.__cropFrame(template_size = (223, 68), x=width//2, y=20)
         result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        print(max_val)
-        if max_val >= 0.99:
+        if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
             return True
         return False
     
-    def cropFrame(self, template_size : tuple, debug_mode = False):
-        """Crops top-center part of the frame where healthbar should be.
-        TODO crop a little better and try different resolutions
+    def __tooltipFound(self, mousePos: tuple):
+        # check screenshot for tooltip
+        height, width = self.screenshot.shape[:2]
+        # TODO pixels exact numbers should be calculated by percentages
+        partial_frame = self.__cropFrame(template_size = (200, 200), x=mousePos[0], y=mousePos[1])
+        for tooltip in self.tooltips:
+            result = cv2.matchTemplate(partial_frame, tooltip, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            print(max_val)
+            if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
+                return True
+            return False
+    
+    def __cropFrame(self, template_size: tuple, x: int, y: int, debug_mode: bool = False):
+        """Crops a part of the frame based on the given parameters.
+
         Args:
-            template_size (tuple): dimensions of the frame that is about to be cropped
+            template_size (tuple): The size of the frame to be cropped.
+            x (int): The x-coordinate of the center of the crop area.
+            y (int): The y-coordinate of the center of the crop area.
+            debug_mode (bool, optional): Whether to display the cropped image for debugging purposes. Defaults to False.
 
         Returns:
-            cv_image: _cropped image
+            cv2_image: The cropped image.
         """
         height, width = self.screenshot.shape[:2]
-        # calculate coords for the box
-        top_left = (int(width / 2) - template_size[0]//2, 40 - template_size[1]//2)
-        bottom_right = (int(width / 2) + template_size[0]//2, 100 + template_size[1]//2)
-        # Extract portion of the frame
-        portion = self.screenshot[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+
+        # Calculate coordinates for the box
+        half_width = template_size[0] // 2
+        half_height = template_size[1] // 2
+        top_left_x = max(x - half_width, 0)
+        top_left_y = max(y - half_height, 0)
+        bottom_right_x = min(x + half_width, width)
+        bottom_right_y = min(y + half_height, height)
+        portion = self.screenshot[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
         if debug_mode:
             cv2.imshow("cropped", portion)
-        return portion
-    
 
-    def orderByDistance(self, targets):
+        return portion
+
+    def __orderByDistance(self, targets):
         """Order found bounding boxes by pythagorean distance from the center.
 
         Args:

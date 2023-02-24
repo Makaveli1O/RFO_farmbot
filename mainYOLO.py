@@ -28,12 +28,12 @@ fontPosition = (0,0)
 thickness = 2
 
 # detection constants
-DETECTION_CONFIDENCE = 0.72
+DETECTION_CONFIDENCE = 0.55
 if __name__ == '__main__':
     wincap = WindowCapture('RF Online')
     perception = Perception(None)
     fontPosition = (wincap.w - 300, wincap.h)
-    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h))
+    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap)
     # load a model
     model = YOLO(model="C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\runs\\detect\\train3\\weights\\best.pt")
     box_annotator = sv.BoxAnnotator(
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     loop_time = time()
     # capture window screens 
     wincap.start()
-    bot.start()
+    #bot.start()
     while(True):
         if wincap.screenshot is None:
             continue
@@ -57,21 +57,22 @@ if __name__ == '__main__':
                  )[0]#model(frame)[0] # 0th index because cuda returns list for some reason
         detections = sv.Detections.from_yolov8(result)
         labels = [
-            f"{model.model.names[class_id]} {confidence:0.72f}"
+            f"{model.model.names[class_id]} {confidence:0.55f}"
             for _, confidence, class_id, _
             in detections
         ]
         targets = perception.getPoints(detections.xyxy)
+        print(bot.state)
         # bot stuff
+        """        
         if targets:
             bot.updateFrame(frame)
             bot.update_targets(targets)
-            # hover over target
             bot.run()
-            
-            #xpos, ypos = bot.getScreenPosition(targets[0])
-            #pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
-            #pyautogui.click()
+        else:
+            bot.updateFrame(frame)
+            bot.runAutoAttack()
+            """
         # annotations, vision etc.
         frame = perception.drawVision(frame, detections, labels)#box_annotator.annotate(scene=frame, detections=detections)
         perception.drawFPS(frame,
@@ -86,5 +87,5 @@ if __name__ == '__main__':
             wincap.stop()
             bot.stop()
             break
-    bot.stop()
+    #bot.stop()
     wincap.stop()
