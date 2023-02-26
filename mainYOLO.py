@@ -4,8 +4,8 @@ from windowCaptureYOLO import WindowCapture
 from time import time
 import supervision as sv
 from perception import Perception
-from rfbot import RFBot, BotState
-import pyautogui
+from rfbot import RFBot, BotState, BotMode
+from drawer import Drawer
     
 def getFps() -> int:
     """Get fps calculation. When too early during initialization
@@ -20,6 +20,28 @@ def getFps() -> int:
     except Exception as e:
         fps = 0
     return fps
+
+# Mouse callback function
+def draw_rect(event, x_new, y_new, flags, param):
+    global x, y, w, h, drawing
+
+    if event == cv.EVENT_LBUTTONDOWN:
+        drawing = True
+        x, y = x_new, y_new
+
+    elif event == cv.EVENT_MOUSEMOVE:
+        if drawing:
+            w, h = x_new - x, y_new - y
+
+    elif event == cv.EVENT_LBUTTONUP:
+        drawing = False
+        w, h = x_new - x, y_new - y
+        if w < 0:
+            x += w
+            w = abs(w)
+        if h < 0:
+            y += h
+            h = abs(h)
 # font constants
 font = cv.FONT_HERSHEY_SIMPLEX
 fontScale = 0.8
@@ -31,9 +53,9 @@ thickness = 2
 DETECTION_CONFIDENCE = 0.55
 if __name__ == '__main__':
     wincap = WindowCapture('RF Online')
+    
     perception = Perception(None)
     fontPosition = (wincap.w - 300, wincap.h)
-    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap)
     # load a model
     model = YOLO(model="C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\runs\\detect\\train3\\weights\\best.pt")
     box_annotator = sv.BoxAnnotator(
@@ -44,7 +66,10 @@ if __name__ == '__main__':
     loop_time = time()
     # capture window screens 
     wincap.start()
-    #bot.start()
+    # set custom observable crops for animus and healthbar(resolutions different solutions)
+    drawer = Drawer(wincap.get_screenshot().getImage())
+    drawer.defineAnimusRectangle()
+    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, BotMode.MACRO_ATTACK)
     while(True):
         if wincap.screenshot is None:
             continue
@@ -62,9 +87,8 @@ if __name__ == '__main__':
             in detections
         ]
         targets = perception.getPoints(detections.xyxy)
-        print(bot.state)
+        
         # bot stuff
-              
         if targets:
             bot.updateFrame(frame)
             bot.update_targets(targets)

@@ -5,6 +5,7 @@ from enum import Enum
 import math
 import cv2
 from threadingInterface import ThreadInterface
+from logger import Logger
 
 
 class BotState(Enum):
@@ -13,6 +14,11 @@ class BotState(Enum):
     INITIALIZING = 2
     MOVING = 3
     WAITING = 4
+    
+class BotMode(Enum):
+    AUTO_ATTACK = 0
+    SUMMONER = 1 # check for animus and attack with macro instead of spacebar
+    MACRO_ATTACK = 2 # attack with macro instead of spacebar defaults to f1
 
 class RFBot(ThreadInterface):
     """
@@ -25,6 +31,8 @@ class RFBot(ThreadInterface):
     window_w = 1920
     window_h = 1080
     wincapRef = None
+    logger = Logger()
+    mode = None
     
     state = None
     targets = []
@@ -36,20 +44,23 @@ class RFBot(ThreadInterface):
     INITIALIZINT_TIME = 5
     ATTACKING_TIME = 2
     IGNORE_RADIUS = 130
-    TOOLTIP_MATCH_THRESHOLD = 0.65 # tooltip over other mobs is around 0.60, match is 0.90 +/-
-    HEALTHBAR_MATCH_THRESHOLD = 0.50
+    TOOLTIP_MATCH_THRESHOLD = 0.5 # tooltip over other mobs is around 0.60, match is 0.90 +/-
+    HEALTHBAR_MATCH_THRESHOLD = 0.45
     
-    def __init__(self, window_offset, window_size, wincapRef):
+    def __init__(self, window_offset, window_size, wincapRef, debug_mode = False, mode = BotMode.AUTO_ATTACK):
         self.lock = Lock()
         self.last_click_time = monotonic()
         self.wincapRef = wincapRef
         self.window_offset = window_offset
         self.window_w = window_size[0]
         self.window_h = window_size[1]
+        self.logger.enabled(debug_mode)
+        self.mode = mode
         
         self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
         
         self.healthbar = cv2.imread('healthbar_full.jpg', cv2.IMREAD_UNCHANGED)
         self.mobbar = cv2.imread('healthbar_big_full.jpg', cv2.IMREAD_UNCHANGED)
@@ -59,6 +70,13 @@ class RFBot(ThreadInterface):
         # IMPORTANT THIS ELIMINATES "fail-safe" feature to help in case your script is buggy
         # https://stackoverflow.com/questions/46736652/pyautogui-press-causing-lag-when-called
         pyautogui.PAUSE = 0
+        
+        self.logger.log("Starting RF bot ------------------------------\n")
+        self.logger.log("Window offset: " + str(window_offset))
+        self.logger.log("Window size: " + str(window_size))
+        self.logger.log("Debug mode: " + str(debug_mode))
+        self.logger.log("Bot mode: " + str(self.mode))
+        self.logger.log("------------------------------------------------\n")
         
     def update_targets(self, targets):
         self.targets = targets
@@ -78,16 +96,20 @@ class RFBot(ThreadInterface):
         
     def runAutoAttack(self) -> bool:
         if self.__healthBarFound():
-            print("Searchbar is present!")
-            print("Press space")
+            self.logger.log("Searchbar is present!")
+            self.logger.log("Attack")
             current_time = monotonic()
             time_since_last_click = current_time - self.last_click_time
             if time_since_last_click < 1: # only allow a new click after 1 second
                 return True
 
-            # perform space press
-            pyautogui.press("space")
-
+            # perform attack press
+            if self.mode == BotMode.AUTO_ATTACK:
+                pyautogui.press("space")
+            elif self.mode == BotMode.MACRO_ATTACK:
+                pyautogui.press('f1')
+            else:
+                raise("Bot mode not supported")
             # update last click time
             self.last_click_time = current_time
         else:
@@ -96,15 +118,19 @@ class RFBot(ThreadInterface):
     def run(self):
         # simetimes, healthbar is present but state changes to searching
         if self.__healthBarFound():
-            print("Searchbar is present!")
-            print("Press space")
+            self.logger.log("Searchbar is present!")
             current_time = monotonic()
             time_since_last_click = current_time - self.last_click_time
             if time_since_last_click < 1: # only allow a new click after 1 second
                 return
 
-            # perform space press
-            pyautogui.press("space")
+            # perform attack
+            if self.mode == BotMode.AUTO_ATTACK:
+                pyautogui.press("space")
+            elif self.mode == BotMode.MACRO_ATTACK:
+                pyautogui.press('f1')
+            else:
+                raise("Bot mode not supported")
 
             # update last click time
             self.last_click_time = current_time
@@ -113,7 +139,7 @@ class RFBot(ThreadInterface):
             # target found
             if self.state == BotState.INITIALIZING:
                 # do no bot actions until the startup waiting period is complete
-                print("Initializing bpt..")
+                self.logger.log("Initializing bot..")
                 if time() > self.timestamp + self.INITIALIZINT_TIME:
                     self.state = BotState.SEARCHING
 
@@ -125,8 +151,7 @@ class RFBot(ThreadInterface):
                 if success:
                     self.state = BotState.ATTACKING
                 else:
-                    print("clicktarget was not succesfull returning to main loop.")
-                    print("Clearing targets")
+                    self.logger.log("clicktarget was not succesfull returning to main loop. Clearing targets")
                     self.update_targets([])
                     return
                 
@@ -140,8 +165,8 @@ class RFBot(ThreadInterface):
         Returns:
             tuple: found target
         """
-        targets = self.__orderByDistance(targets)
         targets = self.targets
+        targets = self.__orderByDistance(targets)
         targetFound = False
         i = 0
         # pick one and click
@@ -150,43 +175,46 @@ class RFBot(ThreadInterface):
         try:
             target = targets[i]
         except:
-            print("Targets are empty")
+            self.logger.log("Targets are empty")
             return
+
 
         xpos, ypos = self.getScreenPosition(target)
         # move mouse
+        self.logger.log("moving mouse to {0}, {1}".format(xpos, ypos))
         pyautogui.moveTo(x = xpos, y = ypos, _pause = False)
         
         #toolbar check
         offsetY = 25
         if self.__tooltipFound((xpos,ypos - offsetY)):
-            print("tooltip found! CLICK!")         
+            self.logger.log("tooltip found! CLICK!")         
             # click target
             pyautogui.click()
             return True
         else:
             #tooltip not found give few new frames to check
-            print("not found!")
+            self.logger.log("Tooltip not found!")
             i = 0
             while not self.__tooltipFound((xpos,ypos - offsetY)):
                 if i > 5:
-                    print("Tooltip not found.")
+                    self.logger.log("Tooltip not found.")
                     return False
-                print("Update frame " + str(i))
+                self.logger.log("Update frame " + str(i))
                 self.update_screenshot(self.wincapRef.screenshot.getImage())
                 i += 1
             # tooltip found  
+            self.logger.log("tooltip found! CLICK two")
             pyautogui.click()
             return True
             
     def __healthBarFound(self):
-        # check screenshot for tooltip
-        
+        # check screenshot for healthbar
         height, width = self.screenshot.shape[:2]
         # TODO pixels exact numbers should be calculated by percentages
         partial_frame = self.__cropFrame(template_size = (223, 68), x=width//2, y=20)
         result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        self.logger.log("Healthbar found: " + str(max_val))
         if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
             return True
         return False
@@ -199,10 +227,22 @@ class RFBot(ThreadInterface):
         for tooltip in self.tooltips:
             result = cv2.matchTemplate(partial_frame, tooltip, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            print(max_val)
+            self.logger.log("Tooltip ("+str(tooltip)+") val: " + str(max_val))
             if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
                 return True
             return False
+        
+    def __animusFound(self):
+        # check screenshot for animus symbol
+        height, width = self.screenshot.shape[:2]
+        # TODO pixels exact numbers should be calculated by percentages
+        partial_frame = self.__cropFrame(template_size = (223, 68), x=width//2, y=20)
+        result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        self.logger.log("Animus found: " + str(max_val))
+        if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
+            return True
+        return False
     
     def __cropFrame(self, template_size: tuple, x: int, y: int, debug_mode: bool = False):
         """Crops a part of the frame based on the given parameters.
@@ -240,6 +280,9 @@ class RFBot(ThreadInterface):
         Returns:
             list: Ordered list of bounidng boxws
         """
+        #empty
+        if len(targets) == 0:
+            return targets
         # our character is always in the center of the screen
         my_pos = (self.window_w / 2, self.window_h / 2)
         def pythagorean_distance(pos):
@@ -260,3 +303,11 @@ class RFBot(ThreadInterface):
             tuple: New screen position
         """
         return (pos[0] + self.window_offset[0], pos[1] + self.window_offset[1])
+    
+    def setMode(self, mode: BotMode) -> None:
+        """Sets the bot mode.
+
+        Args:
+            mode (BotMode): The new mode.
+        """
+        self.mode = mode
