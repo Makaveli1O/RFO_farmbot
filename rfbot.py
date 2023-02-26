@@ -6,6 +6,7 @@ import math
 import cv2
 from threadingInterface import ThreadInterface
 from logger import Logger
+from drawer import Drawer
 
 
 class BotState(Enum):
@@ -18,7 +19,7 @@ class BotState(Enum):
 class BotMode(Enum):
     AUTO_ATTACK = 0
     SUMMONER = 1 # check for animus and attack with macro instead of spacebar
-    MACRO_ATTACK = 2 # attack with macro instead of spacebar defaults to f1
+    MACRO_ATTACK_NOT_IMPLEMENTED = 2 # attack with macro instead of spacebar defaults to f1
 
 class RFBot(ThreadInterface):
     """
@@ -47,7 +48,14 @@ class RFBot(ThreadInterface):
     TOOLTIP_MATCH_THRESHOLD = 0.5 # tooltip over other mobs is around 0.60, match is 0.90 +/-
     HEALTHBAR_MATCH_THRESHOLD = 0.45
     
-    def __init__(self, window_offset, window_size, wincapRef, debug_mode = False, mode = BotMode.AUTO_ATTACK):
+    def __init__(self, 
+                 window_offset,
+                 window_size,
+                 wincapRef,
+                 debug_mode = False,
+                 mode = BotMode.AUTO_ATTACK,
+                 animusCropRect : Drawer.Rectangle = None,
+                 ):
         self.lock = Lock()
         self.last_click_time = monotonic()
         self.wincapRef = wincapRef
@@ -56,6 +64,7 @@ class RFBot(ThreadInterface):
         self.window_h = window_size[1]
         self.logger.enabled(debug_mode)
         self.mode = mode
+        self.animusCropRect = animusCropRect
         
         self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))

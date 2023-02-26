@@ -21,27 +21,33 @@ def getFps() -> int:
         fps = 0
     return fps
 
-# Mouse callback function
-def draw_rect(event, x_new, y_new, flags, param):
-    global x, y, w, h, drawing
+def inputPromp():
+    """ A function to prompt the user to select a bot mode"""
+    print("Please select a bot mode:")
+    for mode in BotMode:
+        print(f"{mode.value + 1}: {mode.name}")
 
-    if event == cv.EVENT_LBUTTONDOWN:
-        drawing = True
-        x, y = x_new, y_new
+    choice = input("Enter the number of your choice: ")
+    try:
+        choice = int(choice)
+    except ValueError:
+        print("Invalid choice Defaulting to auto attack mode")
+        selected_mode = BotMode.AUTO_ATTACK
+        return selected_mode
+    
+    if choice == 1:
+        selected_mode = BotMode.AUTO_ATTACK
+    elif choice == 3:
+        selected_mode = BotMode.MACRO_ATTACK
+    elif choice == 2:
+        selected_mode = BotMode.SUMMONER
+    else:
+        print("Invalid choice Defaulting to auto attack mode")
+        selected_mode = BotMode.AUTO_ATTACK
+    print(f"You selected: {selected_mode.name}")
 
-    elif event == cv.EVENT_MOUSEMOVE:
-        if drawing:
-            w, h = x_new - x, y_new - y
+    return selected_mode
 
-    elif event == cv.EVENT_LBUTTONUP:
-        drawing = False
-        w, h = x_new - x, y_new - y
-        if w < 0:
-            x += w
-            w = abs(w)
-        if h < 0:
-            y += h
-            h = abs(h)
 # font constants
 font = cv.FONT_HERSHEY_SIMPLEX
 fontScale = 0.8
@@ -52,8 +58,8 @@ thickness = 2
 # detection constants
 DETECTION_CONFIDENCE = 0.55
 if __name__ == '__main__':
+    bot_mode = inputPromp()
     wincap = WindowCapture('RF Online')
-    
     perception = Perception(None)
     fontPosition = (wincap.w - 300, wincap.h)
     # load a model
@@ -68,8 +74,13 @@ if __name__ == '__main__':
     wincap.start()
     # set custom observable crops for animus and healthbar(resolutions different solutions)
     drawer = Drawer(wincap.get_screenshot().getImage())
-    drawer.defineAnimusRectangle()
-    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, BotMode.MACRO_ATTACK)
+    if bot_mode == BotMode.SUMMONER:
+        drawer.defineAnimusRectangle()
+        drawer.defineHealthBarRectangle()
+    else:
+        drawer.defineHealthBarRectangle()
+    
+    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False)
     while(True):
         if wincap.screenshot is None:
             continue
