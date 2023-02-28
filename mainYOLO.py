@@ -6,6 +6,7 @@ import supervision as sv
 from perception import Perception
 from rfbot import RFBot, BotState, BotMode
 from drawer import Drawer
+import os
     
 def getFps() -> int:
     """Get fps calculation. When too early during initialization
@@ -66,6 +67,9 @@ fontColor = (0, 255, 0)
 fontPosition = (0,0)
 thickness = 2
 
+# get the root path of your project
+root_path = os.path.abspath(os.path.dirname(__file__))
+
 # detection constants
 DETECTION_CONFIDENCE = 0.55
 if __name__ == '__main__':
@@ -75,8 +79,13 @@ if __name__ == '__main__':
     wincap = WindowCapture('RF Online')
     perception = Perception(None)
     fontPosition = (wincap.w - 300, wincap.h)
+    
+    # relative path to the model
+    relative_path = "YOLO\\runs\\detect\\train3\\weights\\best.pt"
+    # combine the root path and the relative path
+    model_path = os.path.join(root_path, relative_path)    
     # load a model
-    model = YOLO(model="C:\\Users\\Makaveli\\Desktop\\Work\\RFO_farmbot\\RFO_farmbot\\YOLO\\runs\\detect\\train3\\weights\\best.pt")
+    model = YOLO(model=model_path)
     box_annotator = sv.BoxAnnotator(
         thickness=2,
         text_thickness=2,
