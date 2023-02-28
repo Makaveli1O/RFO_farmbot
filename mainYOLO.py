@@ -48,6 +48,17 @@ def inputPromp():
 
     return selected_mode
 
+def printInfo():
+    print("------------------------------------")
+    print("-------Welcome to RFO Farmbot-------")
+    print("------------------------------------")
+    print("This bot is designed to farm Caliana mobs in RF Online. Please read following instructions carefully")
+    print("If you with to exit the bot, click into 'yolov8' frame capture and press 'q' to quit")
+    print("If you wish to change the bot mode, please restart the bot")
+    print("Next you will be prompted to select a bot mode, followed by selection of rectangle area to capture healthbar and animus respectively(depends on selected mode)")
+    print("Draw animus rectangle(only 1), then submit with q. Then draw healthbar rectangle and submit with q")
+    #print("IMPORTANT: Make sure to click into the game after rectangles are drawn.")
+    print("Note: This script uses CUDA -> NVIDIA GPU is required for this bot to work. If you do not have one the bot will not work")
 # font constants
 font = cv.FONT_HERSHEY_SIMPLEX
 fontScale = 0.8
@@ -58,6 +69,8 @@ thickness = 2
 # detection constants
 DETECTION_CONFIDENCE = 0.55
 if __name__ == '__main__':
+    printInfo()
+    # get the desired bot mode
     bot_mode = inputPromp()
     wincap = WindowCapture('RF Online')
     perception = Perception(None)
@@ -72,15 +85,7 @@ if __name__ == '__main__':
     loop_time = time()
     # capture window screens 
     wincap.start()
-    # set custom observable crops for animus and healthbar(resolutions different solutions)
-    drawer = Drawer(wincap.get_screenshot().getImage())
-    if bot_mode == BotMode.SUMMONER:
-        drawer.defineAnimusRectangle()
-        drawer.defineHealthBarRectangle()
-    else:
-        drawer.defineHealthBarRectangle()
-    
-    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False)
+    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode = bot_mode)
     while(True):
         if wincap.screenshot is None:
             continue

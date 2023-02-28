@@ -19,7 +19,7 @@ class BotState(Enum):
 class BotMode(Enum):
     AUTO_ATTACK = 0
     SUMMONER = 1 # check for animus and attack with macro instead of spacebar
-    MACRO_ATTACK_NOT_IMPLEMENTED = 2 # attack with macro instead of spacebar defaults to f1
+    #MACRO_ATTACK_NOT_IMPLEMENTED = 2 # attack with macro instead of spacebar defaults to f1
 
 class RFBot(ThreadInterface):
     """
@@ -47,6 +47,7 @@ class RFBot(ThreadInterface):
     IGNORE_RADIUS = 130
     TOOLTIP_MATCH_THRESHOLD = 0.5 # tooltip over other mobs is around 0.60, match is 0.90 +/-
     HEALTHBAR_MATCH_THRESHOLD = 0.45
+    ANIMUS_MATCH_THRESHOLD = 0.40
     
     def __init__(self, 
                  window_offset,
@@ -54,7 +55,6 @@ class RFBot(ThreadInterface):
                  wincapRef,
                  debug_mode = False,
                  mode = BotMode.AUTO_ATTACK,
-                 animusCropRect : Drawer.Rectangle = None,
                  ):
         self.lock = Lock()
         self.last_click_time = monotonic()
@@ -64,7 +64,6 @@ class RFBot(ThreadInterface):
         self.window_h = window_size[1]
         self.logger.enabled(debug_mode)
         self.mode = mode
-        self.animusCropRect = animusCropRect
         
         self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
@@ -72,7 +71,7 @@ class RFBot(ThreadInterface):
         self.tooltips.append(cv2.imread('tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
         
         self.healthbar = cv2.imread('healthbar_full.jpg', cv2.IMREAD_UNCHANGED)
-        self.mobbar = cv2.imread('healthbar_big_full.jpg', cv2.IMREAD_UNCHANGED)
+        self.animusBar = cv2.imread('animusbar.jpg', cv2.IMREAD_UNCHANGED)
         
         self.state = BotState.INITIALIZING
         self.timestamp = time()
@@ -80,18 +79,33 @@ class RFBot(ThreadInterface):
         # https://stackoverflow.com/questions/46736652/pyautogui-press-causing-lag-when-called
         pyautogui.PAUSE = 0
         
+        self.__setup()
+        
         self.logger.log("Starting RF bot ------------------------------\n")
         self.logger.log("Window offset: " + str(window_offset))
         self.logger.log("Window size: " + str(window_size))
         self.logger.log("Debug mode: " + str(debug_mode))
         self.logger.log("Bot mode: " + str(self.mode))
+        self.logger.log("Keybinding: F1 macro attack, F2 animus recovery macro")
         self.logger.log("------------------------------------------------\n")
+        
+    def __setup(self):
+        """ Setup bot observable areas"""
+        # set custom observable crops for animus and healthbar(resolutions different solutions)
+        self.drawer = Drawer(self.wincapRef.get_screenshot().getImage())
+        if self.mode == BotMode.SUMMONER:
+            self.drawer.defineAnimusRectangle()
+            self.drawer.defineHealthBarRectangle()
+        else:
+            self.drawer.defineHealthBarRectangle()
+        return
         
     def update_targets(self, targets):
         self.targets = targets
         
     def update_screenshot(self, screenshot):
         self.screenshot = screenshot
+        
     def updateFrame(self, frame):
         self.screenshot = frame
         
@@ -104,6 +118,13 @@ class RFBot(ThreadInterface):
         self.stopped = True
         
     def runAutoAttack(self) -> bool:
+        # first check for animus bar if corresponding bot mode is set
+        if self.mode == BotMode.SUMMONER:
+            if not self.__animusBarFound():
+                self.logger.notice("Animus bar not found! Recovering animus...")
+                pyautogui.press('f2')
+                # return dunno whether autoattack when not animus is not present or not test required
+        # check for healthbar
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
             self.logger.log("Attack")
@@ -115,17 +136,25 @@ class RFBot(ThreadInterface):
             # perform attack press
             if self.mode == BotMode.AUTO_ATTACK:
                 pyautogui.press("space")
-            elif self.mode == BotMode.MACRO_ATTACK:
+            elif self.mode == BotMode.SUMMONER:
                 pyautogui.press('f1')
             else:
                 raise("Bot mode not supported")
             # update last click time
             self.last_click_time = current_time
         else:
+            # meanwhile loot
+            self.logger.log("Looting")
+            pyautogui.press("x")
             self.state = BotState.SEARCHING
             return False
     def run(self):
-        # simetimes, healthbar is present but state changes to searching
+        if self.mode == BotMode.SUMMONER:
+            if not self.__animusBarFound():
+                self.logger.log("Animus bar not found! Recovering animus...")
+                pyautogui.press('f2')
+                # return dunno whether autoattack when not animus is not present or not test required
+        # sometimes, healthbar is present but state changes to searching
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
             current_time = monotonic()
@@ -136,7 +165,7 @@ class RFBot(ThreadInterface):
             # perform attack
             if self.mode == BotMode.AUTO_ATTACK:
                 pyautogui.press("space")
-            elif self.mode == BotMode.MACRO_ATTACK:
+            elif self.mode == BotMode.SUMMONER:
                 pyautogui.press('f1')
             else:
                 raise("Bot mode not supported")
@@ -153,7 +182,6 @@ class RFBot(ThreadInterface):
                     self.state = BotState.SEARCHING
 
             elif self.state == BotState.SEARCHING:
-                
                 success = self.clickTarget()
 
                 # if successful, switch state to attacking
@@ -216,11 +244,11 @@ class RFBot(ThreadInterface):
             pyautogui.click()
             return True
             
+    #TODO merge __tooltipFound and __healthBarFound into one more abstract function
     def __healthBarFound(self):
         # check screenshot for healthbar
         height, width = self.screenshot.shape[:2]
-        # TODO pixels exact numbers should be calculated by percentages
-        partial_frame = self.__cropFrame(template_size = (223, 68), x=width//2, y=20)
+        partial_frame = self.__cropFrameCustom(self.drawer.getHealthBarRectangle())
         result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         self.logger.log("Healthbar found: " + str(max_val))
@@ -228,10 +256,22 @@ class RFBot(ThreadInterface):
             return True
         return False
     
+    def __animusBarFound(self):
+        # check screenshot for healthbar
+        height, width = self.screenshot.shape[:2]
+        partial_frame = self.__cropFrameCustom(self.drawer.getAnimusRectangle())
+        # resize, since saved .jpeg can be different size than current screen part
+        self.animusBar = cv2.resize(self.animusBar, (partial_frame.shape[1], partial_frame.shape[0]))
+        result = cv2.matchTemplate(partial_frame, self.animusBar, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        self.logger.log("AnimusBar found: " + str(max_val))
+        if max_val >= self.ANIMUS_MATCH_THRESHOLD:
+            return True
+        return False
+    
     def __tooltipFound(self, mousePos: tuple):
         # check screenshot for tooltip
         height, width = self.screenshot.shape[:2]
-        # TODO pixels exact numbers should be calculated by percentages
         partial_frame = self.__cropFrame(template_size = (200, 200), x=mousePos[0], y=mousePos[1])
         for tooltip in self.tooltips:
             result = cv2.matchTemplate(partial_frame, tooltip, cv2.TM_CCOEFF_NORMED)
@@ -240,22 +280,27 @@ class RFBot(ThreadInterface):
             if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
                 return True
             return False
-        
-    def __animusFound(self):
-        # check screenshot for animus symbol
-        height, width = self.screenshot.shape[:2]
-        # TODO pixels exact numbers should be calculated by percentages
-        partial_frame = self.__cropFrame(template_size = (223, 68), x=width//2, y=20)
-        result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        self.logger.log("Animus found: " + str(max_val))
-        if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
-            return True
-        return False
     
-    def __cropFrame(self, template_size: tuple, x: int, y: int, debug_mode: bool = False):
+    def __cropFrameCustom(self, rect : Drawer.Rectangle, debug_mode: bool = False):
         """Crops a part of the frame based on the given parameters.
+        Replaces @__cropFrame fro healthbar and animus check
 
+        Args:
+            rect (Drawer.Rectangle): Drawed rectangle object
+            debug_mode (bool, optional): Logs to the console. Defaults to True.
+
+        Returns:
+            _type_: Cropped part of the frame
+        """
+        portion = self.screenshot[rect.top_left[1]:rect.bottom_right[1], rect.top_left[0]:rect.bottom_right[0]]
+        #portion = self.screenshot[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
+        if debug_mode:
+            cv2.imshow("cropped", portion)
+
+        return portion
+    def __cropFrame(self, template_size: tuple, x: int, y: int, debug_mode: bool = False):
+        """Crops a part of the frame based on the given parameters. This is used to crop the frame
+        to a smaller size to speed up the template matching. Also is used only for checking tooltip.
         Args:
             template_size (tuple): The size of the frame to be cropped.
             x (int): The x-coordinate of the center of the crop area.

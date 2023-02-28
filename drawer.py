@@ -11,9 +11,9 @@ class Drawer:
     class Rectangle:
         """A class to store the coordinates of the rectangle
         """
-        def __init__(self, upper_left, lower_right):
-            self.upper_left = upper_left
-            self.lower_right = lower_right
+        def __init__(self, top_left, bottom_right):
+            self.top_left = top_left
+            self.bottom_right = bottom_right
             
     logger = Logger(True) #implicitly log to true
     animusDrawedRectangle = None
@@ -27,7 +27,7 @@ class Drawer:
         return self.animusDrawedRectangle
     
     def getHealthBarRectangle(self):
-        return self.animusDrawedRectangle
+        return self.healthBarDrawedRectangle
     
     # Mouse callback function
     def drawAnimusRect(self, event, x, y, flags = None, param = None) -> None:
@@ -68,7 +68,7 @@ class Drawer:
             
             # save found rectangle
             self.animusDrawedRectangle = self.Rectangle((x_start, y_start), (x_end, y_end))
-            self.logger.log("Drawer: Animus rectangle defined")
+            self.logger.log("Drawer: Animus rectangle defined and will be observed at this location")
 
         return
 
@@ -110,7 +110,7 @@ class Drawer:
             cv.imshow("image", self.img)
             
             self.healthBarDrawedRectangle = self.Rectangle((x_start, y_start), (x_end, y_end))
-            self.logger.log("Drawer: Healthbar rectangle defined")
+            self.logger.log("Drawer: Healthbar rectangle defined and will be observed at this location")
 
         return
     def defineAnimusRectangle(self):

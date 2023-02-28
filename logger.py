@@ -9,7 +9,12 @@ class Logger:
         self._log = statement
         
     def log(self, msg):
+        """ Only prints when logger is enabled """
         if self._log is True:
             print(msg)
         else:
             pass
+        
+    def notice(self, msg):
+        """ Prints a notice message"""
+        print(msg)
