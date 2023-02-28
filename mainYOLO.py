@@ -60,12 +60,6 @@ def printInfo():
     print("Draw animus rectangle(only 1), then submit with q. Then draw healthbar rectangle and submit with q")
     #print("IMPORTANT: Make sure to click into the game after rectangles are drawn.")
     print("Note: This script uses CUDA -> NVIDIA GPU is required for this bot to work. If you do not have one the bot will not work")
-# font constants
-font = cv.FONT_HERSHEY_SIMPLEX
-fontScale = 0.8
-fontColor = (0, 255, 0)
-fontPosition = (0,0)
-thickness = 2
 
 # get the root path of your project
 root_path = os.path.abspath(os.path.dirname(__file__))
@@ -94,6 +88,10 @@ if __name__ == '__main__':
     loop_time = time()
     # capture window screens 
     wincap.start()
+    while(wincap.screenshot is None):
+        continue # wait till the first frame is captured
+    wincap.set_avg()
+    # init bot
     bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode = bot_mode)
     while(True):
         if wincap.screenshot is None:
@@ -112,7 +110,6 @@ if __name__ == '__main__':
             in detections
         ]
         targets = perception.getPoints(detections.xyxy)
-        
         # bot stuff
         if targets:
             bot.updateFrame(frame)
@@ -127,7 +124,6 @@ if __name__ == '__main__':
         perception.drawFPS(frame,
                            getFps(),
                            (wincap.w - 100, wincap.h - 10)) # wincap.dims + padding
-        
         cv.imshow("yolov8", frame)
         
         loop_time = time()

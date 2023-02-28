@@ -9,6 +9,7 @@ class WindowCapture:
     stopped = True
     lock = None
     screenshot = None
+    runningAvg = 0
     
     w = 0
     h = 0
@@ -47,22 +48,33 @@ class WindowCapture:
         # images into actual screen positions
         self.offset_x = window_rect[0] + self.cropped_x
         self.offset_y = window_rect[1] + self.cropped_y
-
+        
+    def set_avg(self):
+        """Can be called only after start() is called"""
+        # determine the average
+        self.avg = np.float32(self.screenshot.getImage())
+        
+    def get_avg(self):
+        return self.avg
+    
     def get_screenshot(self) -> Screenshot:
-
         # get the window image data
         wDC = win32gui.GetWindowDC(self.hwnd)
         dcObj = win32ui.CreateDCFromHandle(wDC)
         cDC = dcObj.CreateCompatibleDC()
         dataBitMap = win32ui.CreateBitmap()
+        
+        # create a new bitmap object each time
         dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+
         cDC.SelectObject(dataBitMap)
         cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
 
         # convert the raw data into a format opencv can read
-        #dataBitMap.SaveBitmapFile(cDC, 'debug.bmp')
         signedIntsArray = dataBitMap.GetBitmapBits(True)
-        img = np.fromstring(signedIntsArray, dtype='uint8')
+        #img = np.fromstring(signedIntsArray, dtype='uint8')
+        img = np.frombuffer(signedIntsArray, dtype='uint8')
+
         img.shape = (self.h, self.w, 4)
 
         # free resources

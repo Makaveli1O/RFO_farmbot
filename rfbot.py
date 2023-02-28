@@ -7,6 +7,7 @@ import cv2
 from threadingInterface import ThreadInterface
 from logger import Logger
 from drawer import Drawer
+from fontUtils import FontUtils
 
 
 class BotState(Enum):
@@ -118,6 +119,9 @@ class RFBot(ThreadInterface):
         self.stopped = True
         
     def runAutoAttack(self) -> bool:
+        if self.detectCharacterMovement():
+            self.stopMovement()
+            return 
         # first check for animus bar if corresponding bot mode is set
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
@@ -148,7 +152,11 @@ class RFBot(ThreadInterface):
             pyautogui.press("x")
             self.state = BotState.SEARCHING
             return False
+        
     def run(self):
+        if self.detectCharacterMovement():
+            self.stopMovement()
+            return 
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
                 self.logger.log("Animus bar not found! Recovering animus...")
@@ -192,7 +200,16 @@ class RFBot(ThreadInterface):
                     self.update_targets([])
                     return
                 
-            
+    def stopMovement(self):
+        """Clicks the center of the screen to prevent character from moving"""
+        # TODO make this be configurable during loading
+        offsetY = 100
+        offsetX = 0
+        self.logger.log("Clicking center")
+        print("Movement detected! Clicking center")
+        center_x, center_y = self.screenshot.shape[1] // 2 + offsetX, self.screenshot.shape[0] // 2 + offsetY
+        pyautogui.moveTo(x = center_x, y = center_y, _pause = False)
+        pyautogui.click()
     
     def clickTarget(self):
         """Targets are ordered by distance from center. Closest target is selected to move
@@ -346,6 +363,70 @@ class RFBot(ThreadInterface):
         targets = [t for t in targets if pythagorean_distance(t) > self.IGNORE_RADIUS]
 
         return targets
+    
+    def detectCharacterMovement(self, debug_mode: bool = False) -> bool:
+        """Detects if the character is moving.
+
+        Returns:
+            bool: True if the character is moving.
+        """
+        MOVEMENT_THRESHOLD = 18   # need to experiment with this value 
+        
+        center_x, center_y = self.screenshot.shape[1] // 2, self.screenshot.shape[0] // 2
+        offsetX, offsetY = 250, 0 #make roi center a bit to the right
+        # define the ROI
+        roi_size = 200
+        x, y = center_x - roi_size // 2 + offsetX, center_y - roi_size // 2 + offsetY
+        w, h = roi_size, roi_size
+        
+        # get avg 
+        avg = self.wincapRef.get_avg()
+        # Make sure both images have the same size and number of channels
+        if self.screenshot.shape != avg.shape:
+            avg = cv2.resize(avg, (self.screenshot.shape[1], self.screenshot.shape[0]))
+        if self.screenshot.shape[-1] != avg.shape[-1]:
+            avg = cv2.cvtColor(avg, cv2.COLOR_BGR2GRAY)
+        
+        # Compute the running average
+        alpha = 0.5  # adjust this parameter to control the rate of update
+        cv2.accumulateWeighted(self.screenshot, avg, alpha)
+        background = cv2.convertScaleAbs(avg)
+
+        
+        # Convert the current frame and background to grayscale
+        frame_gray = cv2.cvtColor(self.screenshot, cv2.COLOR_BGR2GRAY)
+        background_gray = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+        
+        # Compute the absolute difference between the frame and background
+        frame_diff = cv2.absdiff(background_gray, frame_gray)
+
+        # Apply a threshold to obtain a binary image
+        thresh = cv2.threshold(frame_diff, MOVEMENT_THRESHOLD, 255, cv2.THRESH_BINARY)[1]
+        
+        # Apply a morphological operation to remove noise and fill gaps
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+
+        # Compute the number of non-zero pixels in the ROI
+        roi = thresh[y:y+h, x:x+w]
+        num_pixels = cv2.countNonZero(roi)
+        # Check if the character has moved
+        if num_pixels > 10:  # adjust this threshold as needed
+            self.logger.log("Character has moved!")
+            return True
+        else:
+            return False
+        """ For some reason freezes main YOLO capture
+        if debug_mode is True:
+            fontUtils = FontUtils()
+            cv2.putText(self.screenshot, "ROI", 
+                   (center_x - 20, center_y),
+                   fontUtils.font, 
+                   fontUtils.fontScale,
+                   (0, 0, 255),
+                   fontUtils.thickness)
+            cv2.rectangle(self.screenshot, (x, y), (x+ w , y + h), (0, 0, 255), thickness=2)"""
+    
     
     def getScreenPosition(self, pos):
         """Converts position into screen position.

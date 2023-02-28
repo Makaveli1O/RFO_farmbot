@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 from enum import Enum
 import supervision as sv
+from fontUtils import FontUtils
 
 class DebugModes(Enum):
     CONSOLE_ONLY = "console"
@@ -186,6 +187,23 @@ class Perception:
             return input_frame
         output_frame = self.box_annotator.annotate(scene=input_frame, detections=detections, labels=labels)
         return output_frame
+    
+    def drawSecondaryVision(self, input_frame, textPos: tuple, recPos : tuple, recDim: tuple):
+        """Important: Call this method after drawVision() to see detections!
+
+        Args:
+            input_frame (_type_): _description_
+        """
+        # draw ROI rectangle
+        fontUtils = FontUtils()
+        cv.putText(input_frame, "ROI", 
+                (textPos[0] - 20, textPos[1]),
+                fontUtils.font, 
+                fontUtils.fontScale,
+                (0, 0, 255),
+                fontUtils.thickness)
+        cv.rectangle(input_frame, (recPos[0], recPos[1]), (recPos[0]+ recDim[0] , recPos[1] + recPos[1]), (0, 0, 255), thickness=2)
+        return input_frame
 
     def drawMidPoints(self, heystack_img, points):
         """@Deprecated: draws mitPoints of the bounding boxes
