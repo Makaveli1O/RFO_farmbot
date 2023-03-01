@@ -35,6 +35,7 @@ class RFBot(ThreadInterface):
     wincapRef = None
     logger = Logger()
     mode = None
+    moving_frames = 0
     
     state = None
     targets = []
@@ -48,7 +49,7 @@ class RFBot(ThreadInterface):
     IGNORE_RADIUS = 130
     TOOLTIP_MATCH_THRESHOLD = 0.5 # tooltip over other mobs is around 0.60, match is 0.90 +/-
     HEALTHBAR_MATCH_THRESHOLD = 0.45
-    ANIMUS_MATCH_THRESHOLD = 0.40
+    ANIMUS_MATCH_THRESHOLD = 0.35
     
     def __init__(self, 
                  window_offset,
@@ -203,7 +204,7 @@ class RFBot(ThreadInterface):
     def stopMovement(self):
         """Clicks the center of the screen to prevent character from moving"""
         # TODO make this be configurable during loading
-        offsetY = 100
+        offsetY = 70
         offsetX = 0
         self.logger.log("Clicking center")
         print("Movement detected! Clicking center")
@@ -364,16 +365,17 @@ class RFBot(ThreadInterface):
 
         return targets
     
-    def detectCharacterMovement(self, debug_mode: bool = False) -> bool:
+    def detectCharacterMovement(self, debug_mode: bool = True) -> bool:
         """Detects if the character is moving.
 
         Returns:
             bool: True if the character is moving.
         """
-        MOVEMENT_THRESHOLD = 18   # need to experiment with this value 
+        MOVEMENT_THRESHOLD = 17   # need to experiment with this value 
+        CONSECUTIVE_FRAMES_THRESHOLD = 5 # adjust this threshold as needed
         
         center_x, center_y = self.screenshot.shape[1] // 2, self.screenshot.shape[0] // 2
-        offsetX, offsetY = 250, 0 #make roi center a bit to the right
+        offsetX, offsetY = 300, 0 #make roi center a bit to the right
         # define the ROI
         roi_size = 200
         x, y = center_x - roi_size // 2 + offsetX, center_y - roi_size // 2 + offsetY
@@ -406,26 +408,33 @@ class RFBot(ThreadInterface):
         # Apply a morphological operation to remove noise and fill gaps
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-
-        # Compute the number of non-zero pixels in the ROI
-        roi = thresh[y:y+h, x:x+w]
-        num_pixels = cv2.countNonZero(roi)
-        # Check if the character has moved
-        if num_pixels > 10:  # adjust this threshold as needed
-            self.logger.log("Character has moved!")
-            return True
-        else:
-            return False
-        """ For some reason freezes main YOLO capture
+        
+        # For some reason freezes main YOLO capture
         if debug_mode is True:
             fontUtils = FontUtils()
             cv2.putText(self.screenshot, "ROI", 
-                   (center_x - 20, center_y),
+                   (center_x - 20 + offsetX, center_y),
                    fontUtils.font, 
                    fontUtils.fontScale,
                    (0, 0, 255),
                    fontUtils.thickness)
-            cv2.rectangle(self.screenshot, (x, y), (x+ w , y + h), (0, 0, 255), thickness=2)"""
+            cv2.rectangle(self.screenshot, (x, y), (x+ w , y + h), (0, 0, 255), thickness=2)
+
+        # Compute the number of non-zero pixels in the ROI
+        roi = thresh[y:y+h, x:x+w]
+        num_pixels = cv2.countNonZero(roi)
+        #print(num_pixels)
+        # Check if the character has moved
+        if num_pixels > 50:  # adjust this threshold as needed
+            self.moving_frames += 1
+            self.logger.log("Character has moved!")
+            if self.moving_frames >= CONSECUTIVE_FRAMES_THRESHOLD:
+                self.logger.log("Character has been moving for {} frames!".format(self.moving_frames))
+                return True
+        else:
+            self.moving_frames = 0
+            return False
+
     
     
     def getScreenPosition(self, pos):

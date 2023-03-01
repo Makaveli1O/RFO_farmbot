@@ -115,9 +115,11 @@ if __name__ == '__main__':
             bot.updateFrame(frame)
             bot.update_targets(targets)
             bot.run()
+            
         else:
             bot.updateFrame(frame)
             bot.runAutoAttack()
+            
         
         # annotations, vision etc.
         frame = perception.drawVision(frame, detections, labels)#box_annotator.annotate(scene=frame, detections=detections)
