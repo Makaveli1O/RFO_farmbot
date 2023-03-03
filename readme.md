@@ -8,7 +8,7 @@
 
 ```pip install -r requeriments.txt```
 
-
+TODO: add ultralytics, supervision, pywin32 to the requirements
 
 Tested on:
 ```
