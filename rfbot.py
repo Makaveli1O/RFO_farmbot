@@ -129,6 +129,7 @@ class RFBot(ThreadInterface):
         self.screenshot = frame
         
     def start(self):
+        self.last_click_time = monotonic()
         self.stopped = False
         t = Thread(target=self.run)
         t.start()
@@ -167,7 +168,7 @@ class RFBot(ThreadInterface):
         else:
             # meanwhile loot
             self.logger.log("Looting")
-            #pyautogui.press("x")
+            pyautogui.press("x")
             self.state = BotState.SEARCHING
             return False
         
@@ -191,6 +192,7 @@ class RFBot(ThreadInterface):
             # perform attack
             if self.mode == BotMode.AUTO_ATTACK:
                 pyautogui.press("space")
+                print("SPACE")
             elif self.mode == BotMode.SUMMONER:
                 pyautogui.press('f1')
             else:
@@ -258,9 +260,15 @@ class RFBot(ThreadInterface):
         #toolbar check
         offsetY = 25
         if self.__tooltipFound((xpos,ypos - offsetY)):
-            self.logger.log("tooltip found! CLICK!")         
+            self.logger.log("tooltip found! CLICK!", True)         
             # click target
-            pyautogui.click()
+            if monotonic() - self.last_click_time > 0.3 or self.last_click_time == 0:
+                pyautogui.click()
+                self.last_click_time = monotonic()
+            else:
+                self.logger.log("Clicking too fast!")
+            #pyautogui.click()
+            #self.last_click_time = monotonic()
             return True
         else:
             #tooltip not found give few new frames to check
@@ -274,8 +282,13 @@ class RFBot(ThreadInterface):
                 self.update_screenshot(self.wincapRef.screenshot.getImage())
                 i += 1
             # tooltip found  
-            self.logger.log("tooltip found! CLICK two")
-            pyautogui.click()
+            self.logger.log("tooltip found! CLICK two", True)
+            if monotonic() - self.last_click_time > 0.3:
+                pyautogui.click()
+                self.last_click_time = monotonic()
+            else:
+                self.logger.log("Clicking too fast!")
+            #pyautogui.click()
             return True
             
     #TODO merge __tooltipFound and __healthBarFound into one more abstract function
@@ -287,7 +300,7 @@ class RFBot(ThreadInterface):
         self.healthbar = cv2.resize(self.healthbar, (partial_frame.shape[1], partial_frame.shape[0]))
         result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        self.logger.log("Healthbar found: " + str(max_val), True)
+        self.logger.log("Healthbar found: " + str(max_val))
         if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
             return True
         return False
