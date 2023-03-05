@@ -60,6 +60,7 @@ class RFBot(ThreadInterface):
                  ):
         self.lock = Lock()
         self.last_click_time = monotonic()
+        self.last_animus_call_time = monotonic()
         self.wincapRef = wincapRef
         self.window_offset = window_offset
         self.window_w = window_size[0]
@@ -129,7 +130,6 @@ class RFBot(ThreadInterface):
         self.screenshot = frame
         
     def start(self):
-        self.last_click_time = monotonic()
         self.stopped = False
         t = Thread(target=self.run)
         t.start()
@@ -144,8 +144,10 @@ class RFBot(ThreadInterface):
         # first check for animus bar if corresponding bot mode is set
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
-                self.logger.notice("Animus bar not found! Recovering animus...")
-                pyautogui.press('f2')
+                if monotonic() - self.last_animus_call_time > 5: # prevent returning just summoned animus
+                    self.logger.log("Animus bar not found! Recovering animus...")
+                    pyautogui.press('f2')
+                    self.last_animus_call_time = monotonic()
                 # return dunno whether autoattack when not animus is not present or not test required
         # check for healthbar
         if self.__healthBarFound():
