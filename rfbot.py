@@ -48,8 +48,8 @@ class RFBot(ThreadInterface):
     ATTACKING_TIME = 2
     IGNORE_RADIUS = 130
     TOOLTIP_MATCH_THRESHOLD = 0.5 # tooltip over other mobs is around 0.60, match is 0.90 +/-
-    HEALTHBAR_MATCH_THRESHOLD = 0.45
-    ANIMUS_MATCH_THRESHOLD = 0.35
+    HEALTHBAR_MATCH_THRESHOLD = 0.7
+    ANIMUS_MATCH_THRESHOLD = 0.85
     
     def __init__(self, 
                  window_offset,
@@ -71,9 +71,6 @@ class RFBot(ThreadInterface):
         self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
         self.tooltips.append(cv2.imread('tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
-        
-        self.healthbar = cv2.imread('healthbar_full.jpg', cv2.IMREAD_UNCHANGED)
-        self.animusBar = cv2.imread('animusbar.jpg', cv2.IMREAD_UNCHANGED)
         
         self.state = BotState.INITIALIZING
         self.timestamp = time()
@@ -98,8 +95,28 @@ class RFBot(ThreadInterface):
         if self.mode == BotMode.SUMMONER:
             self.drawer.defineAnimusRectangle()
             self.drawer.defineHealthBarRectangle()
+            self.saveAnimusImage()
+            self.saveHealthBarImage()
         else:
             self.drawer.defineHealthBarRectangle()
+        return
+    
+    def saveAnimusImage(self):
+        """ Save animus bar image for template matching"""
+        self.screenshot = self.wincapRef.get_screenshot().getImage()
+        cropped = self.__cropFrameCustom(self.drawer.getAnimusRectangle())
+        cv2.imwrite("animusbar.jpg", cropped, [cv2.IMWRITE_JPEG_QUALITY, 100])
+        self.animusBar = cv2.imread('animusbar.jpg', cv2.IMREAD_UNCHANGED)
+        self.logger.notice("Animus bar saved")
+        return
+    
+    def saveHealthBarImage(self):
+        """ Save Healthbar bar image for template matching"""
+        self.screenshot = self.wincapRef.get_screenshot().getImage()
+        cropped = self.__cropFrameCustom(self.drawer.getHealthBarRectangle())
+        cv2.imwrite("healthbar_big_full.jpg", cropped)
+        self.healthbar = cv2.imread('healthbar_big_full.jpg', cv2.IMREAD_UNCHANGED)
+        self.logger.notice("Healthbar saved")
         return
         
     def update_targets(self, targets):
@@ -150,7 +167,7 @@ class RFBot(ThreadInterface):
         else:
             # meanwhile loot
             self.logger.log("Looting")
-            pyautogui.press("x")
+            #pyautogui.press("x")
             self.state = BotState.SEARCHING
             return False
         
@@ -207,7 +224,6 @@ class RFBot(ThreadInterface):
         offsetY = 70
         offsetX = 0
         self.logger.log("Clicking center")
-        print("Movement detected! Clicking center")
         center_x, center_y = self.screenshot.shape[1] // 2 + offsetX, self.screenshot.shape[0] // 2 + offsetY
         pyautogui.moveTo(x = center_x, y = center_y, _pause = False)
         pyautogui.click()
@@ -267,9 +283,11 @@ class RFBot(ThreadInterface):
         # check screenshot for healthbar
         height, width = self.screenshot.shape[:2]
         partial_frame = self.__cropFrameCustom(self.drawer.getHealthBarRectangle())
+        # resize, since saved .jpeg can be different size than current screen part
+        self.healthbar = cv2.resize(self.healthbar, (partial_frame.shape[1], partial_frame.shape[0]))
         result = cv2.matchTemplate(partial_frame, self.healthbar, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        self.logger.log("Healthbar found: " + str(max_val))
+        self.logger.log("Healthbar found: " + str(max_val), True)
         if max_val >= self.HEALTHBAR_MATCH_THRESHOLD:
             return True
         return False
@@ -281,6 +299,7 @@ class RFBot(ThreadInterface):
         # resize, since saved .jpeg can be different size than current screen part
         self.animusBar = cv2.resize(self.animusBar, (partial_frame.shape[1], partial_frame.shape[0]))
         result = cv2.matchTemplate(partial_frame, self.animusBar, cv2.TM_CCOEFF_NORMED)
+        
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         self.logger.log("AnimusBar found: " + str(max_val))
         if max_val >= self.ANIMUS_MATCH_THRESHOLD:
@@ -314,8 +333,8 @@ class RFBot(ThreadInterface):
         #portion = self.screenshot[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
         if debug_mode:
             cv2.imshow("cropped", portion)
-
         return portion
+    
     def __cropFrame(self, template_size: tuple, x: int, y: int, debug_mode: bool = False):
         """Crops a part of the frame based on the given parameters. This is used to crop the frame
         to a smaller size to speed up the template matching. Also is used only for checking tooltip.
