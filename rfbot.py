@@ -138,9 +138,9 @@ class RFBot(ThreadInterface):
         self.stopped = True
         
     def runAutoAttack(self) -> bool:
-        if self.detectCharacterMovement():
-            self.stopMovement()
-            return 
+        #if self.detectCharacterMovement():
+        #    self.stopMovement()
+        #    return 
         # first check for animus bar if corresponding bot mode is set
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
