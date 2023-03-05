@@ -2,6 +2,7 @@ import numpy as np
 import win32gui, win32ui, win32con
 from threading import Thread,Lock
 from screenshot import Screenshot
+from time import sleep
 
 
 class WindowCapture:
@@ -59,19 +60,29 @@ class WindowCapture:
     
     def get_screenshot(self) -> Screenshot:
         # get the window image data
-        wDC = win32gui.GetWindowDC(self.hwnd)
-        dcObj = win32ui.CreateDCFromHandle(wDC)
-        cDC = dcObj.CreateCompatibleDC()
+        try:
+            wDC = win32gui.GetWindowDC(self.hwnd)
+            dcObj = win32ui.CreateDCFromHandle(wDC)
+            cDC = dcObj.CreateCompatibleDC()
+        except win32ui.error as e:
+            print(f"Error creating compatible DC: {e}")
         dataBitMap = win32ui.CreateBitmap()
         
         # create a new bitmap object each time
-        dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+        try:
+            dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+        except:
+            sleep(0.5)
+            self.get_screenshot()
+            return
+            
 
         cDC.SelectObject(dataBitMap)
         cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
 
         # convert the raw data into a format opencv can read
         signedIntsArray = dataBitMap.GetBitmapBits(True)
+        
         #img = np.fromstring(signedIntsArray, dtype='uint8')
         img = np.frombuffer(signedIntsArray, dtype='uint8')
 
