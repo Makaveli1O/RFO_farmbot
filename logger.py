@@ -8,9 +8,9 @@ class Logger:
     def enabled(self, statement):
         self._log = statement
         
-    def log(self, msg):
+    def log(self, msg, log_me = False):
         """ Only prints when logger is enabled """
-        if self._log is True:
+        if self._log is True or log_me is True:
             print(msg)
         else:
             pass
