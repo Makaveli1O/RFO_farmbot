@@ -165,7 +165,7 @@ class RFBot(ThreadInterface):
             self.logger.log("Attack")
             current_time = monotonic()
             time_since_last_click = current_time - self.last_click_time
-            if time_since_last_click < 1: # only allow a new click after 1 second
+            if time_since_last_click < 1.5: # only allow a new click after 1 second
                 return True
 
             # perform attack press
@@ -253,18 +253,6 @@ class RFBot(ThreadInterface):
                 pyautogui.keyDown('a')
             pyautogui.keyUp('a')
             self.zig_zag_direction = 0
-    
-    def stopMovement(self):
-        """
-        @DEPRECATED
-        Clicks the center of the screen to prevent character from moving"""
-        # make this be configurable during loading
-        offsetY = 70
-        offsetX = 0
-        self.logger.log("Clicking center")
-        center_x, center_y = self.screenshot.shape[1] // 2 + offsetX, self.screenshot.shape[0] // 2 + offsetY
-        pyautogui.moveTo(x = center_x, y = center_y, _pause = False)
-        pyautogui.click()
     
     def clickTarget(self):
         """Targets are ordered by distance from center. Closest target is selected to move
