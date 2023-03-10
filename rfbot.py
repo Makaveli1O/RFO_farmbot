@@ -61,6 +61,10 @@ class RFBot(ThreadInterface):
         self.lock = Lock()
         self.last_click_time = monotonic()
         self.last_animus_call_time = monotonic()
+        #zig-zag stuff
+        self.last_zig_zag = monotonic()
+        self.zig_zag_direction = 1
+        
         self.wincapRef = wincapRef
         self.window_offset = window_offset
         self.window_w = window_size[0]
@@ -138,17 +142,23 @@ class RFBot(ThreadInterface):
         self.stopped = True
         
     def runAutoAttack(self) -> bool:
-        #if self.detectCharacterMovement():
-        #    self.stopMovement()
-        #    return 
         # first check for animus bar if corresponding bot mode is set
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
                 if monotonic() - self.last_animus_call_time > 5: # prevent returning just summoned animus
                     self.logger.log("Animus bar not found! Recovering animus...")
-                    pyautogui.press('f2')
-                    self.last_animus_call_time = monotonic()
-                # return dunno whether autoattack when not animus is not present or not test required
+                    pyautogui.press('f2') # call animus
+                    if self.__animusBarFound(): # check for animus if still cooldown or its up already
+                        self.last_animus_call_time = monotonic()
+                    else: # still cooldown zigzag
+                        # zig-zag every 3 seconds to prevend dieing
+                        
+                        if monotonic() - self.last_zig_zag > 3:
+                            self.zig_zag()
+                            self.last_zig_zag = monotonic()
+                        pyautogui.press('f1')
+                        
+                
         # check for healthbar
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
@@ -175,14 +185,23 @@ class RFBot(ThreadInterface):
             return False
         
     def run(self):
-        if self.detectCharacterMovement():
-            self.stopMovement()
-            return 
+        # TODO check for burst
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
-                self.logger.log("Animus bar not found! Recovering animus...")
-                pyautogui.press('f2')
-                # return dunno whether autoattack when not animus is not present or not test required
+                if monotonic() - self.last_animus_call_time > 5: # prevent returning just summoned animus
+                    self.logger.log("Animus bar not found! Recovering animus...")
+                    pyautogui.press('f2') # call animus
+                    if self.__animusBarFound(): # check for animus if still cooldown or its up already
+                        self.last_animus_call_time = monotonic()
+                    else: # still cooldown zigzag
+                        # zig-zag every 3 seconds to prevend dieing
+                        
+                        if monotonic() - self.last_zig_zag > 5:
+                            self.zig_zag()
+                            self.last_zig_zag = monotonic()
+                            
+                        pyautogui.press('f1')
+                        
         # sometimes, healthbar is present but state changes to searching
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
@@ -194,7 +213,6 @@ class RFBot(ThreadInterface):
             # perform attack
             if self.mode == BotMode.AUTO_ATTACK:
                 pyautogui.press("space")
-                print("SPACE")
             elif self.mode == BotMode.SUMMONER:
                 pyautogui.press('f1')
             else:
@@ -222,9 +240,25 @@ class RFBot(ThreadInterface):
                     self.update_targets([])
                     return
                 
+    def zig_zag(self):
+        if self.zig_zag_direction == 0:
+            print("zigzagging D")
+            for i in range(0, 30):
+                pyautogui.keyDown('d')
+            pyautogui.keyUp('d')
+            self.zig_zag_direction = 1
+        else:
+            print("zigzagging A")
+            for i in range(0, 30):
+                pyautogui.keyDown('a')
+            pyautogui.keyUp('a')
+            self.zig_zag_direction = 0
+    
     def stopMovement(self):
-        """Clicks the center of the screen to prevent character from moving"""
-        # TODO make this be configurable during loading
+        """
+        @DEPRECATED
+        Clicks the center of the screen to prevent character from moving"""
+        # make this be configurable during loading
         offsetY = 70
         offsetX = 0
         self.logger.log("Clicking center")

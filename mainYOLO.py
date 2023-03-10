@@ -7,6 +7,7 @@ from perception import Perception
 from rfbot import RFBot, BotState, BotMode
 from drawer import Drawer
 import os
+import pyautogui
     
 def getFps() -> int:
     """Get fps calculation. When too early during initialization
