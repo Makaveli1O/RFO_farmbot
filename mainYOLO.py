@@ -119,7 +119,7 @@ if __name__ == '__main__':
             
         else:
             bot.updateFrame(frame)
-            bot.runAutoAttack()
+            bot.runNoTargets()
             
         
         # annotations, vision etc.
@@ -135,5 +135,9 @@ if __name__ == '__main__':
             wincap.stop()
             bot.stop()
             break
-    #bot.stop()
+        
+        # save positive image
+        #elif key == ord("f"):
+        #    cv.imwrite('newSamples/{}.jpg'.format(loop_time), wincap.screenshot.getImage())
+        #bot.stop()
     wincap.stop()

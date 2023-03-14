@@ -63,7 +63,7 @@ class RFBot(ThreadInterface):
         self.last_animus_call_time = monotonic()
         #zig-zag stuff
         self.last_zig_zag = monotonic()
-        self.zig_zag_direction = 1
+        self.zig_zag_direction = True
         
         self.wincapRef = wincapRef
         self.window_offset = window_offset
@@ -141,23 +141,18 @@ class RFBot(ThreadInterface):
     def stop(self):
         self.stopped = True
         
-    def runAutoAttack(self) -> bool:
+    def runNoTargets(self) -> bool:
+        """This loop is performed when bot is in autoattack mode. It will perform autoattack on mobs in range.
+        IWhen no mobs are in range it will perform zig-zag to prevent dieing. Only updates frame, because healthbar
+        should be present.
+
+        Returns:
+            bool: _description_
+        """
         # first check for animus bar if corresponding bot mode is set
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
-                if monotonic() - self.last_animus_call_time > 5: # prevent returning just summoned animus
-                    self.logger.log("Animus bar not found! Recovering animus...")
-                    pyautogui.press('f2') # call animus
-                    if self.__animusBarFound(): # check for animus if still cooldown or its up already
-                        self.last_animus_call_time = monotonic()
-                    else: # still cooldown zigzag
-                        # zig-zag every 3 seconds to prevend dieing
-                        
-                        if monotonic() - self.last_zig_zag > 3:
-                            self.zig_zag()
-                            self.last_zig_zag = monotonic()
-                        pyautogui.press('f1')
-                        
+                self.attemptSummonAnimus()
                 
         # check for healthbar
         if self.__healthBarFound():
@@ -168,19 +163,14 @@ class RFBot(ThreadInterface):
             if time_since_last_click < 1.5: # only allow a new click after 1 second
                 return True
 
-            # perform attack press
-            if self.mode == BotMode.AUTO_ATTACK:
-                pyautogui.press("space")
-            elif self.mode == BotMode.SUMMONER:
-                pyautogui.press('f1')
-            else:
-                raise("Bot mode not supported")
+            self.performAttack()
             # update last click time
             self.last_click_time = current_time
         else:
             # meanwhile loot
-            self.logger.log("Looting")
-            pyautogui.press("x")
+            #self.logger.log("Looting")
+            #pyautogui.press("x")
+            self.performZig_zag(delay = 3)
             self.state = BotState.SEARCHING
             return False
         
@@ -188,36 +178,17 @@ class RFBot(ThreadInterface):
         # TODO check for burst
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
-                if monotonic() - self.last_animus_call_time > 5: # prevent returning just summoned animus
-                    self.logger.log("Animus bar not found! Recovering animus...")
-                    pyautogui.press('f2') # call animus
-                    if self.__animusBarFound(): # check for animus if still cooldown or its up already
-                        self.last_animus_call_time = monotonic()
-                    else: # still cooldown zigzag
-                        # zig-zag every 3 seconds to prevend dieing
-                        
-                        if monotonic() - self.last_zig_zag > 5:
-                            self.zig_zag()
-                            self.last_zig_zag = monotonic()
-                            
-                        pyautogui.press('f1')
+                self.attemptSummonAnimus()
                         
         # sometimes, healthbar is present but state changes to searching
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
             current_time = monotonic()
             time_since_last_click = current_time - self.last_click_time
-            if time_since_last_click < 1: # only allow a new click after 1 second
+            if time_since_last_click < 1.5: # only allow a new click after 1 second
                 return
 
-            # perform attack
-            if self.mode == BotMode.AUTO_ATTACK:
-                pyautogui.press("space")
-            elif self.mode == BotMode.SUMMONER:
-                pyautogui.press('f1')
-            else:
-                raise("Bot mode not supported")
-
+            self.performAttack()
             # update last click time
             self.last_click_time = current_time
         else:
@@ -240,19 +211,56 @@ class RFBot(ThreadInterface):
                     self.update_targets([])
                     return
                 
-    def zig_zag(self):
-        if self.zig_zag_direction == 0:
-            print("zigzagging D")
-            for i in range(0, 30):
+    def attemptSummonAnimus(self):
+        if monotonic() - self.last_animus_call_time > 3: # prevent returning just summoned animus
+            self.logger.log("Animus bar not found! Recovering animus...")
+            pyautogui.press('f2') # call animus
+            self.last_animus_call_time = monotonic()
+        # if still not summoned, after each 5 sec attempt perform zig-zag
+        else:
+            if not self.__animusBarFound():
+                self.logger.log("Performing zig-zag")
+                self.performZig_zag(length = 500, delay = 5)
+                
+    def performAttack(self):
+        #self.zig_zag_direction = not self.zig_zag_direction
+        # perform attack
+        if self.mode == BotMode.AUTO_ATTACK:
+            pyautogui.press("space")
+        elif self.mode == BotMode.SUMMONER:
+            pyautogui.press('f1')
+        else:
+            raise("Bot mode not supported")
+        # swap zigzag to different direction since moving is locked during attack
+                
+    def performZig_zag(self, length = 30, delay = 3) -> None:
+        """Performs moving from left rto right. This prevents mobs from cotinuosly hitting staying target,
+        and finds close enemies on top of character's head.
+
+        Args:
+            length (int, optional): length of moving to the left or right(in cycles). Defaults to 30.
+            delay (float, optional): Delay between performing zigzag. Defaults to 3(seconds).
+        """
+        if monotonic() - self.last_zig_zag > delay:
+            self.zig_zag(length)
+            self.last_zig_zag = monotonic()
+        else: # when cant zigzag, loot
+             # tihs probably breaks zigzag purpose
+             pyautogui.press('x')
+        return
+            
+    def zig_zag(self, length):
+        # FIXME this causes freezing of the frames, since it is not in separate thread
+        if self.zig_zag_direction:
+            for i in range(0, length):
                 pyautogui.keyDown('d')
             pyautogui.keyUp('d')
-            self.zig_zag_direction = 1
+            self.zig_zag_direction = not self.zig_zag_direction
         else:
-            print("zigzagging A")
-            for i in range(0, 30):
+            for i in range(0, length):
                 pyautogui.keyDown('a')
             pyautogui.keyUp('a')
-            self.zig_zag_direction = 0
+            self.zig_zag_direction = not self.zig_zag_direction
     
     def clickTarget(self):
         """Targets are ordered by distance from center. Closest target is selected to move
