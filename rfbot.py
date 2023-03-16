@@ -355,7 +355,6 @@ class RFBot(ThreadInterface):
         for tooltip in self.tooltips:
             result = cv2.matchTemplate(partial_frame, tooltip, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            print(max_val)
             if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
                 return True
             return False
