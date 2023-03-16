@@ -225,7 +225,7 @@ class RFBot(ThreadInterface):
         else:
             if not self.__animusBarFound():
                 self.logger.log("Performing zig-zag")
-                self.__performZig_zag(length = 500, delay = 5)
+                self.__performZig_zag(length = 50, delay = 5)
                 
     def performAttack(self):
         # perform attack
