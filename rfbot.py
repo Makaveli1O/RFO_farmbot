@@ -4,7 +4,7 @@ from time import time, sleep, monotonic
 from enum import Enum
 import math
 import cv2
-from threadingInterface import ThreadInterface
+from interfaces.threadingInterface import ThreadInterface
 from logger import Logger
 from drawer import Drawer
 from fontUtils import FontUtils
@@ -59,7 +59,6 @@ class RFBot(ThreadInterface):
                  mode = BotMode.AUTO_ATTACK,
                  ):
         self.lock = Lock()
-        self.last_click_time = monotonic()
         self.last_animus_call_time = monotonic()
         #zig-zag stuff
         self.last_zig_zag = monotonic()
@@ -72,10 +71,15 @@ class RFBot(ThreadInterface):
         self.logger.enabled(debug_mode)
         self.mode = mode
         
-        self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
-        self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
-        self.tooltips.append(cv2.imread('tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
-        self.tooltips.append(cv2.imread('tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
+        # remove white names for now
+        # self.tooltips.append(cv2.imread('tooltips/tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
+        # self.tooltips.append(cv2.imread('tooltips/tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_atrock_black_bg.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_atrock_blue_bg.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_crew_black_bg.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_crew_blue_bg.jpg', cv2.IMREAD_UNCHANGED))
         
         self.state = BotState.INITIALIZING
         self.timestamp = time()
@@ -158,24 +162,16 @@ class RFBot(ThreadInterface):
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
             self.logger.log("Attack")
-            current_time = monotonic()
-            time_since_last_click = current_time - self.last_click_time
-            if time_since_last_click < 1.5: # only allow a new click after 1 second
-                return True
-
             self.performAttack()
-            # update last click time
-            self.last_click_time = current_time
         else:
             # meanwhile loot
             #self.logger.log("Looting")
             #pyautogui.press("x")
-            self.performZig_zag(delay = 3)
+            self.__performZig_zag(delay = 3)
             self.state = BotState.SEARCHING
             return False
         
     def run(self):
-        # TODO check for burst
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
                 self.attemptSummonAnimus()
@@ -183,14 +179,7 @@ class RFBot(ThreadInterface):
         # sometimes, healthbar is present but state changes to searching
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
-            current_time = monotonic()
-            time_since_last_click = current_time - self.last_click_time
-            if time_since_last_click < 1.5: # only allow a new click after 1 second
-                return
-
             self.performAttack()
-            # update last click time
-            self.last_click_time = current_time
         else:
             self.state = BotState.SEARCHING
             # target found
@@ -220,20 +209,19 @@ class RFBot(ThreadInterface):
         else:
             if not self.__animusBarFound():
                 self.logger.log("Performing zig-zag")
-                self.performZig_zag(length = 500, delay = 5)
+                self.__performZig_zag(length = 50, delay = 5)
                 
     def performAttack(self):
-        #self.zig_zag_direction = not self.zig_zag_direction
         # perform attack
         if self.mode == BotMode.AUTO_ATTACK:
             pyautogui.press("space")
         elif self.mode == BotMode.SUMMONER:
+            pyautogui.press("f3") # FIXES bug with running towards newly selected target
             pyautogui.press('f1')
         else:
             raise("Bot mode not supported")
-        # swap zigzag to different direction since moving is locked during attack
                 
-    def performZig_zag(self, length = 30, delay = 3) -> None:
+    def __performZig_zag(self, length = 30, delay = 3) -> None:
         """Performs moving from left rto right. This prevents mobs from cotinuosly hitting staying target,
         and finds close enemies on top of character's head.
 
@@ -242,14 +230,14 @@ class RFBot(ThreadInterface):
             delay (float, optional): Delay between performing zigzag. Defaults to 3(seconds).
         """
         if monotonic() - self.last_zig_zag > delay:
-            self.zig_zag(length)
+            self.__zig_zag(length)
             self.last_zig_zag = monotonic()
         else: # when cant zigzag, loot
              # tihs probably breaks zigzag purpose
              pyautogui.press('x')
         return
             
-    def zig_zag(self, length):
+    def __zig_zag(self, length):
         # FIXME this causes freezing of the frames, since it is not in separate thread
         if self.zig_zag_direction:
             for i in range(0, length):
@@ -292,15 +280,9 @@ class RFBot(ThreadInterface):
         #toolbar check
         offsetY = 25
         if self.__tooltipFound((xpos,ypos - offsetY)):
-            self.logger.log("tooltip found! CLICK!", True)         
+            self.logger.log("tooltip found! CLICK!")         
             # click target
-            if monotonic() - self.last_click_time > 0.3 or self.last_click_time == 0:
-                pyautogui.click()
-                self.last_click_time = monotonic()
-            else:
-                self.logger.log("Clicking too fast!")
-            #pyautogui.click()
-            #self.last_click_time = monotonic()
+            self.__performClick()
             return True
         else:
             #tooltip not found give few new frames to check
@@ -314,17 +296,22 @@ class RFBot(ThreadInterface):
                 self.update_screenshot(self.wincapRef.screenshot.getImage())
                 i += 1
             # tooltip found  
-            self.logger.log("tooltip found! CLICK two", True)
-            if monotonic() - self.last_click_time > 0.3:
-                pyautogui.click()
-                self.last_click_time = monotonic()
-            else:
-                self.logger.log("Clicking too fast!")
-            #pyautogui.click()
+            self.__performClick()
+
             return True
+        
+    def __performClick(self) -> None:
+        """
+        Fail save to prevent double clicking target resulting in moving towerds him
+        with a staff in the hand(or any other meele weapon)If it is found do not click.
+        
+        edit: actually do not fix this issue. Its game related. Still will keep it like this.
+        """
+        if not self.__healthBarFound():
+            pyautogui.click()
             
     #TODO merge __tooltipFound and __healthBarFound into one more abstract function
-    def __healthBarFound(self):
+    def __healthBarFound(self) -> bool:
         # check screenshot for healthbar
         height, width = self.screenshot.shape[:2]
         partial_frame = self.__cropFrameCustom(self.drawer.getHealthBarRectangle())
@@ -337,7 +324,7 @@ class RFBot(ThreadInterface):
             return True
         return False
     
-    def __animusBarFound(self):
+    def __animusBarFound(self) ->bool:
         # check screenshot for healthbar
         height, width = self.screenshot.shape[:2]
         partial_frame = self.__cropFrameCustom(self.drawer.getAnimusRectangle())
@@ -351,14 +338,23 @@ class RFBot(ThreadInterface):
             return True
         return False
     
-    def __tooltipFound(self, mousePos: tuple):
+    def __tooltipFound(self, mousePos: tuple) -> bool:
+        """Checks if tooltip is present above the target. If yes, returns True.
+        Crops the capturet screenshot to 200x200 rectangle around mouse position
+        with the usage of __cropFrame method.
+
+        Args:
+            mousePos (tuple): Current position of the mouse
+
+        Returns:
+            boolean: True if tooltip is found, False otherwise
+        """
         # check screenshot for tooltip
         height, width = self.screenshot.shape[:2]
         partial_frame = self.__cropFrame(template_size = (200, 200), x=mousePos[0], y=mousePos[1])
         for tooltip in self.tooltips:
             result = cv2.matchTemplate(partial_frame, tooltip, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            self.logger.log("Tooltip ("+str(tooltip)+") val: " + str(max_val))
             if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
                 return True
             return False
@@ -439,11 +435,3 @@ class RFBot(ThreadInterface):
             tuple: New screen position
         """
         return (pos[0] + self.window_offset[0], pos[1] + self.window_offset[1])
-    
-    def setMode(self, mode: BotMode) -> None:
-        """Sets the bot mode.
-
-        Args:
-            mode (BotMode): The new mode.
-        """
-        self.mode = mode

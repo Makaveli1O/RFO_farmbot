@@ -1,6 +1,6 @@
 from threading import Thread, Lock
 import cv2
-from threadingInterface import ThreadInterface
+from interfaces.threadingInterface import ThreadInterface
 import supervision as sv
 from ultralytics import YOLO
 
