@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 import cv2 as cv
 from windowCaptureYOLO import WindowCapture
-from time import time
+from time import time, sleep
 import supervision as sv
 from perception import Perception
 from rfbot import RFBot, BotMode
@@ -86,6 +86,7 @@ if __name__ == '__main__':
     box_annotator = sv.BoxAnnotator(thickness=2, text_thickness=2, text_scale=1)
     loop_time = time()
     wincap.start() #start window capturing thread
+    sleep(1) # wait for the window capture to start
     bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
     while True:
         if wincap.screenshot is None:
