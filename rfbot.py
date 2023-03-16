@@ -72,10 +72,15 @@ class RFBot(ThreadInterface):
         self.logger.enabled(debug_mode)
         self.mode = mode
         
-        self.tooltips.append(cv2.imread('tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
-        self.tooltips.append(cv2.imread('tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
-        self.tooltips.append(cv2.imread('tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
-        self.tooltips.append(cv2.imread('tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
+        # remove white names for now
+        # self.tooltips.append(cv2.imread('tooltips/tooltip_crew.jpg', cv2.IMREAD_UNCHANGED))
+        # self.tooltips.append(cv2.imread('tooltips/tooltip_atrock.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_crew_red.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_atrock_red.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_atrock_black_bg.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_atrock_blue_bg.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_crew_black_bg.jpg', cv2.IMREAD_UNCHANGED))
+        self.tooltips.append(cv2.imread('tooltips/tooltip_crew_blue_bg.jpg', cv2.IMREAD_UNCHANGED))
         
         self.state = BotState.INITIALIZING
         self.timestamp = time()
@@ -290,7 +295,7 @@ class RFBot(ThreadInterface):
         #toolbar check
         offsetY = 25
         if self.__tooltipFound((xpos,ypos - offsetY)):
-            self.logger.log("tooltip found! CLICK!", True)         
+            self.logger.log("tooltip found! CLICK!")         
             # click target
             self.__performClick()
             return True
