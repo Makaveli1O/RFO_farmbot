@@ -4,7 +4,7 @@ from time import time, sleep, monotonic
 from enum import Enum
 import math
 import cv2
-from threadingInterface import ThreadInterface
+from interfaces.threadingInterface import ThreadInterface
 from logger import Logger
 from drawer import Drawer
 from fontUtils import FontUtils
