@@ -9,3 +9,6 @@ Copyright (c) 2005-2022 NVIDIA Corporation
 Built on Wed_Sep_21_10:41:10_Pacific_Daylight_Time_2022
 Cuda compilation tools, release 11.8, V11.8.89
 Build cuda_11.8.r11.8/compiler.31833905_0
+
+ pip install torch==1.13.1+cu116 -f https://download.pytorch.org/whl/cu116/torch_stable.html
+ pip install torchaudio==0.13.1+cu116 -f https://download.pytorch.org/whl/cu116/torch_stable.html
