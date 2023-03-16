@@ -59,7 +59,6 @@ class RFBot(ThreadInterface):
                  mode = BotMode.AUTO_ATTACK,
                  ):
         self.lock = Lock()
-        self.last_click_time = monotonic()
         self.last_animus_call_time = monotonic()
         #zig-zag stuff
         self.last_zig_zag = monotonic()
@@ -163,14 +162,7 @@ class RFBot(ThreadInterface):
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
             self.logger.log("Attack")
-            current_time = monotonic()
-            time_since_last_click = current_time - self.last_click_time
-            if time_since_last_click < 1.5: # only allow a new click after 1 second
-                return True
-
             self.performAttack()
-            # update last click time
-            self.last_click_time = current_time
         else:
             # meanwhile loot
             #self.logger.log("Looting")
@@ -180,7 +172,6 @@ class RFBot(ThreadInterface):
             return False
         
     def run(self):
-        # TODO check for burst
         if self.mode == BotMode.SUMMONER:
             if not self.__animusBarFound():
                 self.attemptSummonAnimus()
@@ -188,14 +179,7 @@ class RFBot(ThreadInterface):
         # sometimes, healthbar is present but state changes to searching
         if self.__healthBarFound():
             self.logger.log("Searchbar is present!")
-            current_time = monotonic()
-            time_since_last_click = current_time - self.last_click_time
-            if time_since_last_click < 1.5: # only allow a new click after 1 second
-                return
-
             self.performAttack()
-            # update last click time
-            self.last_click_time = current_time
         else:
             self.state = BotState.SEARCHING
             # target found
@@ -232,6 +216,7 @@ class RFBot(ThreadInterface):
         if self.mode == BotMode.AUTO_ATTACK:
             pyautogui.press("space")
         elif self.mode == BotMode.SUMMONER:
+            pyautogui.press("f3") # FIXES bug with running towards newly selected target
             pyautogui.press('f1')
         else:
             raise("Bot mode not supported")
@@ -319,8 +304,10 @@ class RFBot(ThreadInterface):
         """
         Fail save to prevent double clicking target resulting in moving towerds him
         with a staff in the hand(or any other meele weapon)If it is found do not click.
+        
+        edit: actually do not fix this issue. Its game related. Still will keep it like this.
         """
-        if self.__healthBarFound():
+        if not self.__healthBarFound():
             pyautogui.click()
             
     #TODO merge __tooltipFound and __healthBarFound into one more abstract function
@@ -368,7 +355,7 @@ class RFBot(ThreadInterface):
         for tooltip in self.tooltips:
             result = cv2.matchTemplate(partial_frame, tooltip, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            self.logger.log("Tooltip ("+str(tooltip)+") val: " + str(max_val))
+            print(max_val)
             if max_val >= self.TOOLTIP_MATCH_THRESHOLD:
                 return True
             return False
