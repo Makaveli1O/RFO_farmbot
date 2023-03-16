@@ -352,6 +352,16 @@ class RFBot(ThreadInterface):
         return False
     
     def __tooltipFound(self, mousePos: tuple):
+        """Checks if tooltip is present above the target. If yes, returns True.
+        Crops the capturet screenshot to 200x200 rectangle around mouse position
+        with the usage of __cropFrame method.
+
+        Args:
+            mousePos (tuple): Current position of the mouse
+
+        Returns:
+            boolean: True if tooltip is found, False otherwise
+        """
         # check screenshot for tooltip
         height, width = self.screenshot.shape[:2]
         partial_frame = self.__cropFrame(template_size = (200, 200), x=mousePos[0], y=mousePos[1])
@@ -439,11 +449,3 @@ class RFBot(ThreadInterface):
             tuple: New screen position
         """
         return (pos[0] + self.window_offset[0], pos[1] + self.window_offset[1])
-    
-    def setMode(self, mode: BotMode) -> None:
-        """Sets the bot mode.
-
-        Args:
-            mode (BotMode): The new mode.
-        """
-        self.mode = mode

@@ -86,13 +86,12 @@ if __name__ == '__main__':
     box_annotator = sv.BoxAnnotator(thickness=2, text_thickness=2, text_scale=1)
     loop_time = time()
     wincap.start() #start window capturing thread
-    time.sleep(1) # wait for wincap to start capturing
     bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
     while True:
         if wincap.screenshot is None:
             continue
         frame = wincap.screenshot.getImage()
-        result = model.predict(source=frame, verbose=False, conf=sv.DETECTION_CONFIDENCE)[0]
+        result = model.predict(source=frame, verbose=False, conf=DETECTION_CONFIDENCE)[0]
         detections = sv.Detections.from_yolov8(result)
         labels = [f"{model.model.names[class_id]} {confidence:0.55f}" for _, confidence, class_id, _ in detections]
         targets = perception.getPoints(detections.xyxy)
