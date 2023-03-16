@@ -83,6 +83,7 @@ if __name__ == '__main__':
     font_position = (wincap.w - 300, wincap.h) # position for the fps display
     model_path = get_model_path() # path to the model
     model = YOLO(model=model_path) # initialize the model
+    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
     box_annotator = sv.BoxAnnotator(thickness=2, text_thickness=2, text_scale=1)
     loop_time = time()
     wincap.start() #start window capturing thread
@@ -94,13 +95,11 @@ if __name__ == '__main__':
         detections = sv.Detections.from_yolov8(result)
         labels = [f"{model.model.names[class_id]} {confidence:0.55f}" for _, confidence, class_id, _ in detections]
         targets = perception.getPoints(detections.xyxy)
-        if targets:
-            bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
+        if targets: # if there are targets, run routine
             bot.updateFrame(frame)
             bot.update_targets(targets)
             bot.run()
-        else:
-            bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
+        else: # no targets, run different run routine
             bot.updateFrame(frame)
             bot.runNoTargets()
         frame = perception.drawVision(frame, detections, labels)
