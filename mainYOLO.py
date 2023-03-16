@@ -4,10 +4,14 @@ from windowCaptureYOLO import WindowCapture
 from time import time
 import supervision as sv
 from perception import Perception
-from rfbot import RFBot, BotState, BotMode
-from drawer import Drawer
+from rfbot import RFBot, BotMode
 import os
-import pyautogui
+
+# get the root path of your project
+root_path = os.path.abspath(os.path.dirname(__file__))
+
+# detection constants
+DETECTION_CONFIDENCE = 0.55
     
 def getFps() -> int:
     """Get fps calculation. When too early during initialization
@@ -23,7 +27,7 @@ def getFps() -> int:
         fps = 0
     return fps
 
-def inputPromp():
+def inputPromp() -> BotMode:
     """ A function to prompt the user to select a bot mode"""
     print("Please select a bot mode:")
     for mode in BotMode:
@@ -50,7 +54,7 @@ def inputPromp():
 
     return selected_mode
 
-def printInfo():
+def printInfo() -> None:
     print("------------------------------------")
     print("-------Welcome to RFO Farmbot-------")
     print("------------------------------------")
@@ -62,82 +66,49 @@ def printInfo():
     #print("IMPORTANT: Make sure to click into the game after rectangles are drawn.")
     print("Note: This script uses CUDA -> NVIDIA GPU is required for this bot to work. If you do not have one the bot will not work")
 
-# get the root path of your project
-root_path = os.path.abspath(os.path.dirname(__file__))
+def get_model_path() -> str:
+    root_path = os.getcwd()
+    relative_path = "YOLO/runs/detect/train3/weights/best.pt"
+    model_path = os.path.join(root_path, relative_path)
+    return model_path
 
-# detection constants
-DETECTION_CONFIDENCE = 0.55
+def get_fps() -> float:
+    return 1.0 / (time() - loop_time)
+
 if __name__ == '__main__':
-    printInfo()
-    # get the desired bot mode
-    bot_mode = inputPromp()
+    printInfo() # print initial info about the bot to the user
+    bot_mode = inputPromp() # ask for the input
     wincap = WindowCapture('RF Online')
     perception = Perception(None)
-    fontPosition = (wincap.w - 300, wincap.h)
-    
-    # relative path to the model
-    relative_path = "YOLO\\runs\\detect\\train3\\weights\\best.pt"
-    # combine the root path and the relative path
-    model_path = os.path.join(root_path, relative_path)    
-    # load a model
-    model = YOLO(model=model_path)
-    box_annotator = sv.BoxAnnotator(
-        thickness=2,
-        text_thickness=2,
-        text_scale=1
-    )
+    font_position = (wincap.w - 300, wincap.h) # position for the fps display
+    model_path = get_model_path() # path to the model
+    model = YOLO(model=model_path) # initialize the model
+    box_annotator = sv.BoxAnnotator(thickness=2, text_thickness=2, text_scale=1)
     loop_time = time()
-    # capture window screens 
-    wincap.start()
-    while(wincap.screenshot is None):
-        continue # wait till the first frame is captured
-    wincap.set_avg()
-    # init bot
-    bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode = bot_mode)
-    while(True):
+    wincap.start() #start window capturing thread
+    while True:
         if wincap.screenshot is None:
             continue
-        # capture the frame
         frame = wincap.screenshot.getImage()
-        result = model.predict(
-                    source=frame,
-                    verbose=False,
-                    conf=DETECTION_CONFIDENCE
-                 )[0]#model(frame)[0] # 0th index because cuda returns list for some reason
+        result = model.predict(source=frame, verbose=False, conf=sv.DETECTION_CONFIDENCE)[0]
         detections = sv.Detections.from_yolov8(result)
-        labels = [
-            f"{model.model.names[class_id]} {confidence:0.55f}"
-            for _, confidence, class_id, _
-            in detections
-        ]
+        labels = [f"{model.model.names[class_id]} {confidence:0.55f}" for _, confidence, class_id, _ in detections]
         targets = perception.getPoints(detections.xyxy)
-        # bot stuff
         if targets:
+            bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
             bot.updateFrame(frame)
             bot.update_targets(targets)
             bot.run()
-            
         else:
+            bot = RFBot((wincap.offset_x, wincap.offset_y), (wincap.w, wincap.h), wincap, False, mode=bot_mode)
             bot.updateFrame(frame)
             bot.runNoTargets()
-            
-        
-        # annotations, vision etc.
-        frame = perception.drawVision(frame, detections, labels)#box_annotator.annotate(scene=frame, detections=detections)
-        perception.drawFPS(frame,
-                           getFps(),
-                           (wincap.w - 100, wincap.h - 10)) # wincap.dims + padding
+        frame = perception.drawVision(frame, detections, labels)
+        perception.drawFPS(frame, get_fps(), (wincap.w - 100, wincap.h - 10))
         cv.imshow("yolov8", frame)
-        
         loop_time = time()
         key = cv.waitKey(1)
         if key == ord('q'):
             wincap.stop()
-            bot.stop()
             break
-        
-        # save positive image
-        #elif key == ord("f"):
-        #    cv.imwrite('newSamples/{}.jpg'.format(loop_time), wincap.screenshot.getImage())
-        #bot.stop()
     wincap.stop()
