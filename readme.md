@@ -7,6 +7,8 @@ nvcc: NVIDIA (R) Cuda compiler driver
 
 
 ## Install instructions
+**python 3.9 required!! 3.10 does not meet dependency requirements**
+
 *note: important to install ultralytics before torch! Since ultarlytics will install cpu version of torch that has to be overriden.*
 
 `pip install numpy`
