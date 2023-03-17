@@ -96,7 +96,7 @@ class Perception:
             midPoints.append(self.__getMidPointYolo(x1, y1, x2 ,y2))
         return midPoints
         
-    def __buildBoundingBoxes(self, locations, needle_w, needle_h) -> int | None:
+    def __buildBoundingBoxes(self, locations, needle_w, needle_h) -> int:
         """
         @Deprecated
         Returns a list of rectangles {x,y,w,h}
