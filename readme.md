@@ -1,8 +1,5 @@
-Install PYTHON requisities from requirements.txt
-Todo: add supervision, ultralytics, pywin32, pyautogui to requirements
-
 ## Working environment:
-python 3.9 windows store```
+```python 3.9 windows store```
 
 
 nvcc: NVIDIA (R) Cuda compiler driver
