@@ -29,3 +29,6 @@ install corresponding torch version that supports *CUDA*
 ### OR
 
 `pip install -r requirements.txt`
+
+###Virtual machine setup for graphics card integration
+https://www.youtube.com/watch?v=aZtuiLYnb_g&ab_channel=TheArtmann
