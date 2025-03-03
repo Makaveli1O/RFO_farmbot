@@ -1,34 +1,41 @@
-## Working environment:
-```python 3.9 windows store```
 
+# RFO FarmBot
 
-nvcc: NVIDIA (R) Cuda compiler driver
-*Build cuda_11.8.r11.8/compiler.31833905_0*
+_Automated farming bot for RF Online using YOLO-based object detection._
 
+## Features
 
-## Install instructions
-**python 3.9 required!! 3.10 does not meet dependency requirements**
+- ✅ Auto-detects enemies and engages in combat
+- ✅ Uses YOLO-based perception for targeting
+- ✅ Supports custom configurations
+- ✅ Works with NVIDIA CUDA for fast processing
 
-*note: important to install ultralytics before torch! Since ultarlytics will install cpu version of torch that has to be overriden.*
+## Installation
 
-`pip install numpy`
+1. Install Python 3.9 (3.10+ is not supported).
+2. Install dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```  
+3. Install the correct CUDA-supported PyTorch:
+   ```sh
+   pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+   ```
 
-`pip install ultralytics`
+## Usage
 
-`pip install pypiwin32`
+1. Run the bot script:
+   ```sh
+   python rfbot.py
+   ```  
+2. Configure detection settings in `config.json`.
+3. Monitor logs in `logger.py` for debugging.
 
-`pip install supervision`
+## Troubleshooting
 
-`pip install pyautogui`
+- Ensure your GPU drivers and CUDA are installed.
+- Check logs for error messages.
 
+## Contributions
 
-install corresponding torch version that supports *CUDA*
-
-`pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu117`
-
-### OR
-
-`pip install -r requirements.txt`
-
-### Virtual machine setup for graphics card integration
-https://www.youtube.com/watch?v=aZtuiLYnb_g&ab_channel=TheArtmann
+Contributions are welcome! Fork the repo and submit a PR.
